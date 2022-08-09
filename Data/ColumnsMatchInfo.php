@@ -12,6 +12,7 @@ use Manuel\Bundle\UploadDataBundle\Mapper\ConfigColumns;
 use function array_filter;
 use function array_unique;
 use function count;
+use function dump;
 
 /**
  * Class MatchInfo

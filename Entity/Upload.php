@@ -26,21 +26,21 @@ class Upload
     #[ORM\Column]
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    private ?int $id;
+    private ?int $id = null;
 
     #[ORM\Column(type: 'json', nullable: true)]
-    private ?array $columnsMatch;
+    private ?array $columnsMatch = null;
     /**
      * @var ?string Nombre del archivo original que se cargó
      */
     #[ORM\Column(nullable: true)]
-    private ?string $filename;
+    private ?string $filename = null;
 
     /**
      * @var ?string Nombre y Ruta del archivo procesado y renombrado por el sistema
      */
     #[ORM\Column(name: "full_filename", nullable: true)]
-    private ?string $fullFilename;
+    private ?string $fullFilename = null;
 
     #[ORM\OneToMany(targetEntity: UploadedItem::class, mappedBy: "upload")]
     private iterable|Collection $items;
@@ -49,22 +49,22 @@ class Upload
      * @var ?string Nombre corto del archivo procesado y renombrado por el sistema
      */
     #[ORM\Column(nullable: true)]
-    private ?string $file;
+    private ?string $file = null;
 
     #[ORM\Column]
     private string $configClass;
 
     #[ORM\Column(nullable: true)]
-    private ?int $valids;
+    private ?int $valids = null;
 
     #[ORM\Column(nullable: true)]
-    private ?int $invalids;
+    private ?int $invalids = null;
 
     #[ORM\Column(nullable: true)]
-    private ?int $total;
+    private ?int $total = null;
 
     #[ORM\Column(name: "uploaded_at", nullable: true)]
-    private ?DateTimeImmutable $uploadedAt;
+    private ?DateTimeImmutable $uploadedAt = null;
 
     #[ORM\OneToMany(
         mappedBy: "upload",

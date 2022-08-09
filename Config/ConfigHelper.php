@@ -161,6 +161,12 @@ class ConfigHelper
 
     public function processAll(Upload $upload, bool $preventTransferOnInvalid = true): bool
     {
+        if ($upload->getAction('read')->isNotComplete()) {
+            if (!$upload->isColumnsMatched()) {
+                $this->applyDefaultMatch($upload);
+            }
+        }
+        
         if (!$this->getConfig()->isActionable($upload, 'read')) {
             throw UploadProcessException::fromMessage(
                 'Esta carga ya fué leida y no se puede volver a procesar',
@@ -168,7 +174,6 @@ class ConfigHelper
             );
         }
 
-        $this->applyDefaultMatch($upload);
         $this->read($upload, true);
         $this->validate($upload, false, true);
 
