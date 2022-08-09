@@ -143,6 +143,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use App\Upload\UploadCardConfig;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Manuel\Bundle\UploadDataBundle\Attribute\LoadHelper;
+use Manuel\Bundle\UploadDataBundle\Attribute\RequestAttribute;
 use Manuel\Bundle\UploadDataBundle\Attribute\LoadHelperForUpload;
 use Manuel\Bundle\UploadDataBundle\Config\ConfigHelper;
 use Manuel\Bundle\UploadDataBundle\Form\Type\SelectColumnsType;
@@ -171,6 +172,26 @@ class UploadCardController extends AbstractController
         $this->addFlash('success', 'Archivo cargado con exito');
 
         return $this->redirectToRoute('read_path', ['id' => $upload->getId()]);
+    }
+    
+    /**
+     * Este otro ejemplo define opciones para el UploadConfig
+     * Que se usaran en el configureOptions del UploadConfig.
+     * 
+     * Si alguna opción es un atributo de la acción (por ejemplo $prize)
+     * Se debe definir usando el atributo RequestAttribute.  
+     */
+    #[Route("/upload/{id}/", methods=["post"])]
+    public function processWithOptions(
+        Request $request,
+        Prize $prize,
+        #[LoadHelper(UploadCardConfig::class, [
+            'prize' => new RequestAttribute("prize"),
+            'type' => 'promotion',
+            'category' => 5,
+        ])] ConfigHelper $configHelper,
+    ): Response {
+        // ...
     }
 
     /**
