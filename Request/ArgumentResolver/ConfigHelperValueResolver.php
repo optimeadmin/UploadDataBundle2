@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use LogicException;
 use Manuel\Bundle\UploadDataBundle\Attribute\LoadHelper;
 use Manuel\Bundle\UploadDataBundle\Attribute\LoadHelperForUpload;
+use Manuel\Bundle\UploadDataBundle\Attribute\RequestAttribute;
 use Manuel\Bundle\UploadDataBundle\Config\ConfigHelper;
 use Manuel\Bundle\UploadDataBundle\Config\ConfigHelperFactory;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
@@ -60,6 +61,8 @@ class ConfigHelperValueResolver implements ArgumentValueResolverInterface
             $options = $attribute->getOptions();
         }
 
+        $options = $this->normalizeOptions($request, $options);
+
         yield $this->configHelperFactory->createForType($configClass, $options);
     }
 
@@ -100,5 +103,16 @@ class ConfigHelperValueResolver implements ArgumentValueResolverInterface
         }
 
         return $upload?->getConfigClass();
+    }
+
+    private function normalizeOptions(Request $request, array $options): array
+    {
+        foreach ($options as $optionName => $optionValue) {
+            if ($optionValue instanceof RequestAttribute) {
+                $options[$optionName] = $request->attributes->get($optionValue->getName());
+            }
+        }
+
+        return $options;
     }
 }
