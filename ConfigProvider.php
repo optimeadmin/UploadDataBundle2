@@ -13,6 +13,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Symfony\Component\DependencyInjection\Attribute\TaggedLocator;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use function dump;
 use function sprintf;
 
 /**

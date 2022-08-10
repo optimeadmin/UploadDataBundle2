@@ -15,8 +15,6 @@ use function Symfony\Component\Translation\t;
  */
 class EmptyMatchForRequiredColumnsException extends InvalidColumnsMatchException
 {
-    private array $invalidColumns = [];
-
     public function __construct(ConfigColumns $columns, array $matchData)
     {
         $matchedColumns = array_filter($matchData);

@@ -12,4 +12,16 @@ use Exception;
  */
 class InvalidColumnsMatchException extends Exception
 {
+    protected array $invalidColumns = [];
+    protected array $repeatedColumns = [];
+
+    public function getInvalidColumns(): array
+    {
+        return $this->invalidColumns;
+    }
+
+    public function getRepeatedColumns(): array
+    {
+        return $this->repeatedColumns;
+    }
 }

@@ -15,7 +15,6 @@ use function array_merge;
 use function array_unique;
 use function join;
 use function sprintf;
-use const PHP_EOL;
 
 /**
  * Class GroupedConstraintViolations
@@ -176,7 +175,7 @@ class GroupedConstraintViolations implements \Countable, \IteratorAggregate
         foreach ($this->getAll($group, false) as $columnName => $data) {
             if ($showKeys) {
                 $data = array_map(function ($data) use ($columnName) {
-                    return sprintf("[%s]: %s", $columnName, $data);
+                    return $columnName ? sprintf("[%s]: %s", $columnName, $data) : $data;
                 }, $data);
             }
 

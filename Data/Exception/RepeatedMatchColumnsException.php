@@ -16,8 +16,6 @@ use function Symfony\Component\Translation\t;
  */
 class RepeatedMatchColumnsException extends InvalidColumnsMatchException
 {
-    private array $repeatedColumns = [];
-
     public function __construct(array $fileHeaders, array $matchData)
     {
         $grouped = [];

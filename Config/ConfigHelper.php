@@ -166,7 +166,7 @@ class ConfigHelper
                 $this->applyDefaultMatch($upload);
             }
         }
-        
+
         if (!$this->getConfig()->isActionable($upload, 'read')) {
             throw UploadProcessException::fromMessage(
                 'Esta carga ya fué leida y no se puede volver a procesar',
@@ -239,6 +239,15 @@ class ConfigHelper
     public function getDefaultMatchInfo(Upload $upload, array $options = []): ColumnsMatchInfo
     {
         return $this->headersMatcher->getDefaultMatchInfo($this->resolvedConfig, $upload, $options);
+    }
+
+    public function getHeaders(Upload $upload, array $options = []): array
+    {
+        return $this
+            ->headersMatcher
+            ->getDefaultMatchInfo($this->resolvedConfig, $upload, $options)
+            ->getConfigColumns()
+            ->getLabels();
     }
 
     public function applyMatch(ColumnsMatchInfo $matchInfo, array $matchData): ColumnsMatchInfo
