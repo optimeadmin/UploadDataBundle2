@@ -45,6 +45,11 @@ class ExcelReader extends BaseReader
 
         $sheet->garbageCollect();
         $maxRow = $sheet->getHighestRow();
+
+        if ($maxRow <= $rowHeadersIndex) {
+            return [];
+        }
+
         $rows = range($rowHeadersIndex + 1, $maxRow);
         $cols = range(1, Coordinate::columnIndexFromString($lastColumn));
 
