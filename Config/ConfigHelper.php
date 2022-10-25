@@ -47,13 +47,13 @@ class ConfigHelper
         return $this->resolvedConfig->getConfig();
     }
 
-    public function getListData(Request $request, array $filters = null)
+    public function getListData(Request $request, array $filters = null, bool $paginateIfApply = true)
     {
         $query = $this->getConfig()->getQueryList(
             $this->repository, $filters
         );
 
-        return $this->paginateIfApply($query, $request);
+        return $this->paginateIfApply($paginateIfApply, $query, $request);
     }
 
     public function upload(UploadedFile $uploadedFile, array $formData = [], array $uploadAttributes = []): Upload
@@ -273,9 +273,9 @@ class ConfigHelper
         $this->applyMatch($matchInfo, $matchInfo->getMatchedColumns());
     }
 
-    private function paginateIfApply(QueryBuilder $query, Request $request): iterable
+    private function paginateIfApply(bool $paginateIfApply, QueryBuilder $query, Request $request): iterable
     {
-        if ($this->paginator) {
+        if ($paginateIfApply && $this->paginator) {
             $items = $this->paginator->paginate(
                 $query,
                 $request->query->get('page', 1),

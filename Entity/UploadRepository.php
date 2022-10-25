@@ -25,7 +25,7 @@ class UploadRepository extends ServiceEntityRepository
             ->select('upload, actions, attributes')
             ->leftJoin('upload.actions', 'actions')
             ->leftJoin('upload.attributes', 'attributes')
-            ->where('upload.type = :type')
+            ->where('upload.configClass = :type')
             ->setParameter('type', $type)
             ->orderBy('upload.id ', $order);
 
