@@ -158,6 +158,27 @@ class Upload
         return null;
     }
 
+    public function getLastCompletedAction(): ?UploadAction
+    {
+        /** @var UploadAction|null $currentAction */
+        $currentAction = null;
+
+        foreach ($this->getActions() as $action) {
+            if ($action->isNotComplete()) {
+                continue;
+            }
+
+            if ($currentAction?->getCompletedAt() < $action->getCompletedAt()) {
+                $currentAction = $action;
+            }
+        }
+
+        return $currentAction;
+    }
+
+    /**
+     * @return iterable|ArrayCollection|Collection|UploadAction[]
+     */
     public function getActions(): iterable|ArrayCollection|Collection
     {
         return $this->actions;
@@ -338,6 +359,9 @@ class Upload
         return $this->attributes;
     }
 
+    /**
+     * @return iterable|ArrayCollection|Collection|UploadedItem[]
+     */
     public function getValidItems(): iterable|ArrayCollection|Collection
     {
         return $this->getItems()
@@ -346,11 +370,17 @@ class Upload
             });
     }
 
+    /**
+     * @return iterable|ArrayCollection|Collection|UploadedItem[]
+     */
     public function getItems(): iterable|ArrayCollection|Collection
     {
         return $this->items;
     }
 
+    /**
+     * @return iterable|ArrayCollection|Collection|UploadedItem[]
+     */
     public function getInvalidItems(): iterable|ArrayCollection|Collection
     {
         return $this->getItems()

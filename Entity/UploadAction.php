@@ -118,4 +118,8 @@ class UploadAction
         }
     }
 
+    public function __toString(): string
+    {
+        return $this->getName();
+    }
 }
