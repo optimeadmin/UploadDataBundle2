@@ -6,6 +6,7 @@
 
 namespace Manuel\Bundle\UploadDataBundle\Config;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadAction;
@@ -116,6 +117,10 @@ abstract class UploadConfig
     }
 
     public function processAction(Upload $upload, UploadAction $action): void
+    {
+    }
+
+    public function delete(Upload $upload): void
     {
     }
 
