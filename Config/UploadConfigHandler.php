@@ -20,7 +20,6 @@ use Manuel\Bundle\UploadDataBundle\Validator\UploadedItemValidator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
 use Throwable;
-use function dump;
 use function md5;
 use function sprintf;
 use function uniqid;
@@ -325,9 +324,12 @@ class UploadConfigHandler
 
     private function completeAction(Upload $upload, UploadAction $action): void
     {
-        $action->setComplete();
-        $this->objectManager->persist($upload);
-        $this->objectManager->persist($action);
+        if ($this->objectManager->contains($upload)) {
+            $action->setComplete();
+            $this->objectManager->persist($upload);
+            $this->objectManager->persist($action);
+        }
+
         $this->objectManager->flush();
     }
 
