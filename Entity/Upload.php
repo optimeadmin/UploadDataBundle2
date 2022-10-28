@@ -42,7 +42,7 @@ class Upload
     #[ORM\Column(name: "full_filename", nullable: true)]
     private ?string $fullFilename = null;
 
-    #[ORM\OneToMany(targetEntity: UploadedItem::class, mappedBy: "upload")]
+    #[ORM\OneToMany(targetEntity: UploadedItem::class, mappedBy: "upload", cascade: ["remove"])]
     private iterable|Collection $items;
 
     /**

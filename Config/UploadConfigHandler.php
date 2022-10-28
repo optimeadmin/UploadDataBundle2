@@ -20,6 +20,7 @@ use Manuel\Bundle\UploadDataBundle\Validator\UploadedItemValidator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
 use Throwable;
+use function dump;
 use function md5;
 use function sprintf;
 use function uniqid;
@@ -280,8 +281,7 @@ class UploadConfigHandler
             }
 
             $config->delete($upload);
-            $action->setComplete();
-            $this->objectManager->flush();
+            $this->completeAction($upload, $action);
 
             if ($config instanceof ConfigDeleteFiltersAwareInterface) {
                 $config->onPostDelete($upload);
