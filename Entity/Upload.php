@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Manuel\Bundle\UploadDataBundle\Config\UploadConfig;
 use Manuel\Bundle\UploadDataBundle\Data\ColumnsMatchInfo;
 use function array_filter;
+use function array_reverse;
 use function in_array;
 use function is_a;
 
@@ -163,7 +164,7 @@ class Upload
         /** @var UploadAction|null $currentAction */
         $currentAction = null;
 
-        foreach ($this->getActions() as $action) {
+        foreach (array_reverse($this->getActions()->toArray()) as $action) {
             if ($action->isNotComplete()) {
                 continue;
             }
