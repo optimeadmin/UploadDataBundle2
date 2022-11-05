@@ -32,7 +32,7 @@ class UploadedItem implements \ArrayAccess
     private null|array|GroupedConstraintViolations $errors = null;
 
     #[ORM\Column(nullable: true)]
-    private ?bool $valid;
+    private ?bool $valid = null;
 
     private bool $hasDefaultErrors = false;
 
