@@ -136,9 +136,10 @@ class Upload
     {
         return $this->getUploadedAt() !== null
             and $this->isColumnsMatched()
-            and $this->getAction('read')->isNotComplete()
-            and $this->getAction('validate')->isNotComplete()
-            and $this->getAction('transfer')->isNotComplete();
+            and $this->getAction('delete')?->isNotComplete() ?? true
+            and $this->getAction('read')?->isNotComplete() ?? true
+            and $this->getAction('validate')?->isNotComplete() ?? true
+            and $this->getAction('transfer')?->isNotComplete() ?? true;
     }
 
     public function getUploadedAt(): ?DateTimeImmutable
@@ -188,9 +189,10 @@ class Upload
     public function isValidatable(): bool
     {
         return $this->getUploadedAt() !== null
-            and $this->getAction('read')->isComplete()
-            and !$this->getAction('validate')->isInProgress()
-            and $this->getAction('transfer')->isNotComplete();
+            and $this->getAction('delete')?->isNotComplete() ?? true
+            and $this->getAction('read')?->isComplete()
+            and !$this->getAction('validate')?->isInProgress()
+            and $this->getAction('transfer')?->isNotComplete();
     }
 
     public function isTransferable(): bool
