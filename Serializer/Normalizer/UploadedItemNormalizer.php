@@ -40,14 +40,14 @@ class UploadedItemNormalizer implements ContextAwareNormalizerInterface, Normali
         $grouped = $context[self::GROUP_ERRORS] ?? false;
 
         $errors = $object->getErrors()->getAll($groupName, $grouped);
-        $errorsCount = count($object->getErrors());
+        $errorsCount = count($errors);
 
         return [
             'id' => $object->getId(),
             'fileRowNumber' => $object->getFileRowNumber(),
             'data' => $object->getData(),
             'extras' => $object->getExtras(),
-            'is_valid' => $errorsCount > 0,
+            'isValid' => $errorsCount === 0,
             'errors' => $this->normalizer->normalize(
                 $errorsCount > 0 ? $errors : new stdClass(), // para que siempre retorne un objeto json.
                 $format,
