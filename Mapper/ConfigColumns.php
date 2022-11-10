@@ -119,7 +119,7 @@ final class ConfigColumns implements Countable
         return $this->columns[$columnName]['required'] ?? false;
     }
 
-    public function count()
+    public function count(): int
     {
         return count($this->getColumns());
     }

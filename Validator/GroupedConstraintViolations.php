@@ -10,6 +10,7 @@ namespace Manuel\Bundle\UploadDataBundle\Validator;
 
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
+use Traversable;
 use function array_map;
 use function array_merge;
 use function array_unique;
@@ -146,12 +147,12 @@ class GroupedConstraintViolations implements \Countable, \IteratorAggregate
         return isset($this->violations[$name]) && 0 < count($this->violations[$name]);
     }
 
-    public function count()
+    public function count(): int
     {
         return count($this->getAll('default'));
     }
 
-    public function getIterator()
+    public function getIterator(): Traversable
     {
         return new \ArrayIterator($this->getAll('default', false));
     }
