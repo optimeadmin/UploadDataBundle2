@@ -26,9 +26,8 @@ use function count;
 use function is_callable;
 use function sprintf;
 
-
 /**
- * @autor Manuel Aguirre <programador.manuel@gmail.com>
+ * @author Manuel Aguirre <programador.manuel@gmail.com>
  */
 final class ConfigColumns implements Countable
 {

@@ -8,7 +8,6 @@ namespace Manuel\Bundle\UploadDataBundle\Data\Exception;
 use function array_filter;
 use function array_keys;
 use function array_map;
-use function dd;
 use function Symfony\Component\Translation\t;
 
 /**
@@ -27,8 +26,10 @@ class RepeatedMatchColumnsException extends InvalidColumnsMatchException
         $repeated = array_keys(array_filter($grouped, fn($group) => 1 < count($group)));
         $this->repeatedColumns = array_map(fn($col) => $fileHeaders[$col] ?? null, $repeated);
 
-        parent::__construct(t('upload.upload_columns.repeated_items', [
-            'columns' => $this->repeatedColumns,
-        ]));
+        $this->translatableMessage = t('upload.upload_columns.repeated_items', [
+            '{repeated}' => join(', ', $this->repeatedColumns),
+        ]);
+
+        parent::__construct($this->translatableMessage);
     }
 }

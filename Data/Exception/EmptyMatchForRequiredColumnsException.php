@@ -26,9 +26,10 @@ class EmptyMatchForRequiredColumnsException extends InvalidColumnsMatchException
             fn($config) => $config['label'],
             array_diff_key($requiredColumns, $matchedColumns)
         );
+        $this->translatableMessage = t('upload.required_columns.empty', [
+            '{required}' => join(', ', $this->invalidColumns),
+        ]);
 
-        parent::__construct(t('upload.required_columns.empty', [
-            'columns' => $this->invalidColumns,
-        ]));
+        parent::__construct($this->translatableMessage);
     }
 }
