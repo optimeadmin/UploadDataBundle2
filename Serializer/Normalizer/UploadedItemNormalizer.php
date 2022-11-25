@@ -25,12 +25,12 @@ class UploadedItemNormalizer implements ContextAwareNormalizerInterface, Normali
     public const GROUP_NAME = 'uploaded_item.group_name';
     public const GROUP_ERRORS = 'uploaded_item.group_errors';
 
-    public function supportsNormalization($data, string $format = null, array $context = [])
+    public function supportsNormalization(mixed $data, string $format = null, array $context = []): bool
     {
         return $data instanceof UploadedItem;
     }
 
-    public function normalize($object, string $format = null, array $context = [])
+    public function normalize(mixed $object, string $format = null, array $context = [])
     {
         if (!$object instanceof UploadedItem) {
             throw new UnexpectedValueException("Invalid uploadedItem value");

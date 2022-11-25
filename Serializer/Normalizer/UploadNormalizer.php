@@ -9,7 +9,6 @@ namespace Manuel\Bundle\UploadDataBundle\Serializer\Normalizer;
 
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Symfony\Component\Serializer\Exception\UnexpectedValueException;
-use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\ContextAwareNormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
@@ -21,12 +20,12 @@ class UploadNormalizer implements ContextAwareNormalizerInterface, NormalizerAwa
 {
     use NormalizerAwareTrait;
 
-    public function supportsNormalization($data, string $format = null, array $context = [])
+    public function supportsNormalization(mixed $data, string $format = null, array $context = []): bool
     {
         return $data instanceof Upload;
     }
 
-    public function normalize($object, string $format = null, array $context = [])
+    public function normalize(mixed $object, string $format = null, array $context = [])
     {
         if (!$object instanceof Upload) {
             throw new UnexpectedValueException("Invalid upload value");
