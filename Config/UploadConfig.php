@@ -6,7 +6,6 @@
 
 namespace Manuel\Bundle\UploadDataBundle\Config;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadAction;
@@ -43,15 +42,9 @@ abstract class UploadConfig
         return false;
     }
 
-    public function getQueryList(UploadRepository $repository, $filters = null, $order = 'DESC'): QueryBuilder
+    public function getQueryList(UploadRepository $repository, $filters = [], $order = 'DESC'): QueryBuilder
     {
-        if (is_array($filters) and array_key_exists('search', $filters)) {
-            $search = $filters['search'];
-        } else {
-            $search = null;
-        }
-
-        $queryBuilder = $repository->getQueryForType($this::class, $search, $order);
+        $queryBuilder = $repository->getQueryForType($this::class, $filters, $order);
 
         if ($this->excludeDeletedUploads()) {
             $this->addDeleteExclusionFilter($queryBuilder);

@@ -19,7 +19,7 @@ class UploadRepository extends ServiceEntityRepository
         parent::__construct($registry, Upload::class);
     }
 
-    public function getQueryForType($type, $search = null, $order = 'DESC')
+    public function getQueryForType($type, array $filters = [], $order = 'DESC')
     {
         $q = $this->createQueryBuilder('upload')
             ->select('upload, actions, attributes')
@@ -28,6 +28,8 @@ class UploadRepository extends ServiceEntityRepository
             ->where('upload.configClass = :type')
             ->setParameter('type', $type)
             ->orderBy('upload.id ', $order);
+
+        $search = $filters['search'] ?? null;
 
         if (null !== $search && '' !== $search) {
             $q
@@ -40,12 +42,26 @@ class UploadRepository extends ServiceEntityRepository
                 ->setParameter('search_contains', '%' . $search . '%');
         }
 
+        if ($attributes = (array)($filters['attributes'] ?? [])) {
+            foreach ($attributes as $key => $value) {
+                $joinKey = 'attr' . $key;
+                $keyParam = "attr_key_" . $key;
+                $valueParam = "attr_value_" . $key;
+                $q->join(
+                    'upload.attributes',
+                    'attr' . $key,
+                    'with',
+                    "{$joinKey}.name = :{$keyParam} AND {$joinKey}.value = :{$valueParam}"
+                )->setParameter($keyParam, $key)->setParameter($valueParam, $value);
+            }
+        }
+
         return $q;
     }
 
-    public function getLastForType($type): ?Upload
+    public function getLastForType($type, array $filters = []): ?Upload
     {
-        return $this->getQueryForType($type)
+        return $this->getQueryForType($type, $filters)
             ->orderBy('upload.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()

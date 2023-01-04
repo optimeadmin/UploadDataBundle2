@@ -47,7 +47,7 @@ class ConfigHelper
         return $this->resolvedConfig->getConfig();
     }
 
-    public function getListData(Request $request, array $filters = null, bool $paginateIfApply = true)
+    public function getListData(Request $request, array $filters = [], bool $paginateIfApply = true)
     {
         $query = $this->getConfig()->getQueryList(
             $this->repository, $filters
