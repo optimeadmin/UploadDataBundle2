@@ -198,11 +198,11 @@ class Upload
     public function isTransferable(): bool
     {
         return $this->getUploadedAt() !== null
-            and $this->getAction('delete')?->isNotComplete() ?? true
-            and $this->getAction('read')?->isComplete()
-            and $this->getAction('validate')?->isComplete()
-            and $this->getAction('transfer')?->isNotComplete()
-            and $this->getValids() > 0;
+            && $this->getAction('delete')?->isNotComplete() ?? true
+            && $this->getAction('read')?->isComplete()
+            && $this->getAction('validate')?->isComplete()
+            && $this->getAction('transfer')?->isNotComplete()
+            && $this->getValids() > 0;
     }
 
     public function isDefaultAction(string $name): bool

@@ -22,7 +22,7 @@ class UploadRepository extends ServiceEntityRepository
     public function getQueryForType($type, array $filters = [], $order = 'DESC')
     {
         $q = $this->createQueryBuilder('upload')
-            ->select('upload, actions, attributes')
+            ->select('upload, actions')
             ->leftJoin('upload.actions', 'actions')
             ->leftJoin('upload.attributes', 'attributes')
             ->where('upload.configClass = :type')
@@ -62,6 +62,7 @@ class UploadRepository extends ServiceEntityRepository
     public function getLastForType($type, array $filters = []): ?Upload
     {
         return $this->getQueryForType($type, $filters)
+            ->select('upload')
             ->orderBy('upload.id', 'DESC')
             ->setMaxResults(1)
             ->getQuery()
