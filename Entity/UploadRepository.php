@@ -43,10 +43,19 @@ class UploadRepository extends ServiceEntityRepository
         return $q;
     }
 
+    public function getLastForType($type): ?Upload
+    {
+        return $this->getQueryForType($type)
+            ->orderBy('upload.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * @param mixed $id
-     * @param int   $lockMode
-     * @param null  $lockVersion
+     * @param int $lockMode
+     * @param null $lockVersion
      *
      * @return mixed|null|Upload
      */
