@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Manuel\Bundle\UploadDataBundle\Serializer\Normalizer;
 
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
+use Manuel\Bundle\UploadDataBundle\Entity\UploadAttribute;
 use Symfony\Component\Serializer\Exception\UnexpectedValueException;
 use Symfony\Component\Serializer\Normalizer\ContextAwareNormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
@@ -40,7 +41,20 @@ class UploadNormalizer implements ContextAwareNormalizerInterface, NormalizerAwa
             'total' => $object->getTotal(),
             'uploadedAt' => $this->normalizer->normalize($object->getUploadedAt(), $format, $context),
             'lastCompletedAction' => $object->getLastCompletedAction()?->getName() ?? null,
+            'attributes' => $this->normalizeAttributes($object),
             'items' => $this->normalizer->normalize($object->getItems(), $format, $context),
         ];
+    }
+
+    private function normalizeAttributes(Upload $upload): array
+    {
+        $attributes = [];
+
+        /** @var UploadAttribute $attr */
+        foreach ($upload->getAttributes() as $attr) {
+            $attributes[$attr->getName()] = $attr->getValue();
+        }
+
+        return $attributes;
     }
 }
