@@ -92,7 +92,7 @@ class UploadedItem implements \ArrayAccess
         return $this->get($offset);
     }
 
-    public function get(string $key): ?string
+    public function get(string $key): mixed
     {
         return $this->data[$key] ?? null;
     }
