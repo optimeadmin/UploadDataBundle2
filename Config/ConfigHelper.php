@@ -220,15 +220,19 @@ class ConfigHelper
 
     public function restoreInProgress(Upload $upload)
     {
-        /** @var UploadAction $action */
-        foreach ($upload->getActions() as $action) {
-            if ($action->isInProgress()) {
-                $action->setNotComplete();
-                $this->entityManager->persist($action);
+        try {
+            /** @var UploadAction $action */
+            foreach ($upload->getActions() as $action) {
+                if ($action->isInProgress()) {
+                    $action->setNotComplete();
+                    $this->entityManager->persist($action);
+                }
             }
-        }
 
-        $this->entityManager->flush();
+            $this->entityManager->flush();
+        } catch (\Exception $exception) {
+
+        }
     }
 
     public function getLastException(): ?Exception
