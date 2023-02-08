@@ -347,7 +347,7 @@ class Upload
 
     public function getAttribute(string $name): ?UploadAttribute
     {
-        $name = strtolower($name);
+        $name = $name;
 
         foreach ($this->getAttributes() as $item) {
             if ($item->getName() === $name) {

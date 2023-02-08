@@ -34,7 +34,7 @@ class UploadAttribute
         mixed $value
     ) {
         $this->upload = $upload;
-        $this->name = strtolower($name);
+        $this->name = $name;
         $this->setValue($value);
     }
 
