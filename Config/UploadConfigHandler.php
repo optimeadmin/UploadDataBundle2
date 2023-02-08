@@ -20,6 +20,7 @@ use Manuel\Bundle\UploadDataBundle\Validator\UploadedItemValidator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
 use Throwable;
+use function count;
 use function md5;
 use function sprintf;
 use function uniqid;
@@ -106,6 +107,8 @@ class UploadConfigHandler
             $data = $reader->getData($upload);
 
             $columnsMapper = $resolvedConfig->getConfigColumns()->getColumns();
+            $hasConditionalRowFilter = $config instanceof ConditionalRowInterface;
+            $total = 0;
 
             foreach ($data as $dataRowNumber => $item) {
                 $formattedItemData = [];
@@ -127,11 +130,22 @@ class UploadConfigHandler
                     }
                 }
 
+                if ($hasConditionalRowFilter && !$config->processRow($formattedItemData, $dataRowNumber)) {
+                    continue;
+                }
+
                 $uploadedItem = $upload->addItem($formattedItemData, $dataRowNumber);
                 $this->objectManager->persist($uploadedItem);
+                $total++;
             }
 
-            $upload->setTotal(count($data));
+            $upload->setTotal($total);
+
+            if ($hasConditionalRowFilter) {
+                $upload->setAttributeValue('__real_total__', count($data));
+                $upload->setAttributeValue('__excluded_count__', count($data) - $total);
+            }
+
             $this->completeAction($upload, $action);
 
             if ($config instanceof ConfigReadFiltersAwareInterface) {
