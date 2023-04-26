@@ -277,6 +277,11 @@ class ConfigHelper
         $this->applyMatch($matchInfo, $matchInfo->getMatchedColumns());
     }
 
+    public function getConfiguredColumTitles(): array
+    {
+        return $this->resolvedConfig->getConfigColumns()->getColumnsWithLabels();
+    }
+
     private function paginateIfApply(bool $paginateIfApply, QueryBuilder $query, Request $request): iterable
     {
         if ($paginateIfApply && $this->paginator) {
