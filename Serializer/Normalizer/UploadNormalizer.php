@@ -21,6 +21,8 @@ class UploadNormalizer implements ContextAwareNormalizerInterface, NormalizerAwa
 {
     use NormalizerAwareTrait;
 
+    const WITH_ITEMS_KEY = 'upload_with_items';
+
     public function supportsNormalization(mixed $data, string $format = null, array $context = []): bool
     {
         return $data instanceof Upload;
@@ -32,7 +34,7 @@ class UploadNormalizer implements ContextAwareNormalizerInterface, NormalizerAwa
             throw new UnexpectedValueException("Invalid upload value");
         }
 
-        return [
+        $data = [
             'id' => $object->getId(),
             'columnsMatch' => $object->getColumnsMatch(),
             'filename' => $object->getFilename(),
@@ -42,8 +44,13 @@ class UploadNormalizer implements ContextAwareNormalizerInterface, NormalizerAwa
             'uploadedAt' => $this->normalizer->normalize($object->getUploadedAt(), $format, $context),
             'lastCompletedAction' => $object->getLastCompletedAction()?->getName() ?? null,
             'attributes' => $this->normalizeAttributes($object),
-            'items' => $this->normalizer->normalize($object->getItems(), $format, $context),
         ];
+
+        if ($context[self::WITH_ITEMS_KEY] ?? true) {
+            $data['items'] = $this->normalizer->normalize($object->getItems(), $format, $context);
+        }
+
+        return $data;
     }
 
     private function normalizeAttributes(Upload $upload): array
