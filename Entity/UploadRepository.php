@@ -22,7 +22,7 @@ class UploadRepository extends ServiceEntityRepository
     public function getQueryForType($type, array $filters = [], $order = 'DESC')
     {
         $q = $this->createQueryBuilder('upload')
-            ->select('upload, actions')
+            ->select('upload, actions, HIDDEN attributes.id')
             ->leftJoin('upload.actions', 'actions')
             ->leftJoin('upload.attributes', 'attributes')
             ->where('upload.configClass = :type')
@@ -43,17 +43,17 @@ class UploadRepository extends ServiceEntityRepository
         }
 
         if ($attributes = (array)($filters['attributes'] ?? [])) {
-            foreach ($attributes as $key => $value) {
-                $joinKey = 'attr' . $key;
-                $keyParam = "attr_key_" . $key;
-                $valueParam = "attr_value_" . $key;
-                $q->join(
-                    'upload.attributes',
-                    'attr' . $key,
-                    'with',
-                    "{$joinKey}.name = :{$keyParam} AND {$joinKey}.value = :{$valueParam}"
-                )->setParameter($keyParam, $key)->setParameter($valueParam, $value);
-            }
+//            foreach ($attributes as $key => $value) {
+//                $joinKey = 'attr' . $key;
+//                $keyParam = "attr_key_" . $key;
+//                $valueParam = "attr_value_" . $key;
+//                $q->join(
+//                    'upload.attributes',
+//                    'attr' . $key,
+//                    'with',
+//                    "{$joinKey}.name = :{$keyParam} AND {$joinKey}.value = :{$valueParam}"
+//                )->setParameter($keyParam, $key)->setParameter($valueParam, $value);
+//            }
         }
 
         return $q;

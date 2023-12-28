@@ -142,25 +142,21 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use App\Upload\UploadCardConfig;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
-use Manuel\Bundle\UploadDataBundle\Attribute\LoadHelper;
-use Manuel\Bundle\UploadDataBundle\Attribute\RequestAttribute;
-use Manuel\Bundle\UploadDataBundle\Attribute\LoadHelperForUpload;
-use Manuel\Bundle\UploadDataBundle\Config\ConfigHelper;
+use Manuel\Bundle\UploadDataBundle\Config\ConfigHelperFactory;
 use Manuel\Bundle\UploadDataBundle\Form\Type\SelectColumnsType;
 
 class UploadCardController extends AbstractController
 {
     /**
      * En esta ruta hacemos la carga del archivo excel y lo procesamos con el configHelper 
-     * 
-     * El configHelper se carga gracias a el atributo LoadHelper al cual se le pasa
-     * el nombre de la clase de configuración, que en este caso es: UploadCardConfig
      */
     #[Route("/upload", methods=["post"])]
     public function process(
         Request $request,
-        #[LoadHelper(UploadCardConfig::class)] ConfigHelper $configHelper,
+        ConfigHelperFactory $helperFactory,
     ): Response {
+        $configHelper = $this->helperFactory->forType(UploadCardConfig::class);
+        
         $upload = $configHelper->upload(
             $request->files->get('file'), 
             [], // acá pasamos datos adicionales del formulario si hace falta
@@ -176,38 +172,34 @@ class UploadCardController extends AbstractController
     
     /**
      * Este otro ejemplo define opciones para el UploadConfig
-     * Que se usaran en el configureOptions del UploadConfig.
-     * 
-     * Si alguna opción es un atributo de la acción (por ejemplo $prize)
-     * Se debe definir usando el atributo RequestAttribute.  
+     * Que se usaran en el configureOptions del UploadConfig. 
      */
     #[Route("/upload/{id}/", methods=["post"])]
     public function processWithOptions(
         Request $request,
         Prize $prize,
-        #[LoadHelper(UploadCardConfig::class, [
-            'prize' => new RequestAttribute("prize"),
+        ConfigHelperFactory $helperFactory,
+    ): Response {
+        $configHelper = $this->helperFactory->forType(UploadCardConfig::class, [
+            'prize' => $prize,
             'type' => 'promotion',
             'category' => 5,
-        ])] ConfigHelper $configHelper,
-    ): Response {
+        ]);
         // ...
     }
 
     /**
      * En esta ruta hacemos match de las columnas esperadas y las que tiene el excel.
      * Luego de hacerlo se ejecuta el match y se lee el archivo.
-     * 
-     * En este caso el configHelper se cargará en base a la entidad Upload que está como un
-     * parametro del controlador, se usa el atributo LoadHelperForUpload pasandole el 
-     * nombre del parametro que tiene la instancia de Upload, que en este caso es "upload"
      */
     #[Route("/read/{id}", name="read_path")]   
     public function read(
         Request $request, 
         Upload $upload,
-        #[LoadHelperForUpload('upload')] ConfigHelper $configHelper,
+        ConfigHelperFactory $helperFactory,
     ): Response {
+        $configHelper = $this->helperFactory->forUpload($upload);
+       
         $matchInfo = $configHelper->getDefaultMatchInfo($upload);
         
         $form = $this->createFormBuilder()
@@ -238,15 +230,14 @@ class UploadCardController extends AbstractController
     
     /**
      * En esta ruta validamos el archivo y mostramos los resultados.
-     *
-     * Cuando tenemos un solo parametro de tipo Upload, el configHelper
-     * Puede cargarse sin definir los atributos LoadHelperForUpload o LoadHelper
      */
     #[Route("/validate/{id}", name="validate_path")]   
     public function validate(
         Upload $upload,
-        ConfigHelper $configHelper,
+        ConfigHelperFactory $helperFactory,
     ): Response {
+        $configHelper = $this->helperFactory->forUpload($upload);
+        
         if (!$configHelper->validate($upload)) {
             throw $configHelper->getLastException();
         }
@@ -265,8 +256,10 @@ class UploadCardController extends AbstractController
     #[Route("/transfer/{id}", name="transfer_path")]   
     public function transfer(
         Upload $upload,
-        #[LoadHelperForUpload('upload')] ConfigHelper $configHelper,    
+        ConfigHelperFactory $helperFactory,
     ): Response {
+        $configHelper = $this->helperFactory->forUpload($upload);
+        
         if (!$configHelper->transfer($upload)) {
             throw $configHelper->getLastException();
         }
@@ -283,8 +276,9 @@ class UploadCardController extends AbstractController
      * Si lo necesitamos podemos eliminar una carga de un archivo.
      */
     #[Route("/delete/{id}", name="delete_path")] 
-    public function delete(Upload $upload, ConfigHelper $configHelper): Response
-    {
+    public function delete(Upload $upload, ConfigHelperFactory $helperFactory): Response {
+        $configHelper = $this->helperFactory->forUpload($upload);
+
         if (!$configHelper->delete($upload)) {
             throw $configHelper->getLastException();
         }
@@ -320,8 +314,10 @@ class UploadCardController extends AbstractUploadController
     #[Route("/upload", methods=["post"])]
     public function process(
         Request $request,
-        #[LoadHelper(UploadCardConfig::class)] ConfigHelper $configHelper,
+        ConfigHelperFactory $helperFactory,
     ): Response {
+        $configHelper = $this->helperFactory->forType(UploadCardConfig::class);
+        
         $upload = $configHelper->upload(
             $request->files->get('file'), 
             [], // acá pasamos datos adicionales del formulario si hace falta
@@ -355,8 +351,10 @@ class UploadCardController extends AbstractUploadController
     #[Route("/upload", methods=["post"])]
     public function simpleProcess(
         Request $request,
-        #[LoadHelper(UploadCardConfig::class)] ConfigHelper $configHelper,
+        ConfigHelperFactory $helperFactory,
     ): Response {
+        $configHelper = $this->helperFactory->forType(UploadCardConfig::class);
+        
         $upload = $configHelper->upload(
             $request->files->get('file'), 
             [], // acá pasamos datos adicionales del formulario si hace falta

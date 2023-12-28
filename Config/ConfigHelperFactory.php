@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
 use Manuel\Bundle\UploadDataBundle\ConfigProvider;
 use Manuel\Bundle\UploadDataBundle\Data\Reader\ExcelHeadersMatcher;
+use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadedItemRepository;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadRepository;
 use Psr\Log\LoggerInterface;
@@ -44,8 +45,21 @@ class ConfigHelperFactory
         );
     }
 
+    /**
+     * @deprecated use forType
+     */
     public function createForType(string $type, array $options = []): ConfigHelper
     {
         return $this->create($this->provider->get($type, $options));
+    }
+
+    public function forType(string $type, array $options = []): ConfigHelper
+    {
+        return $this->create($this->provider->get($type, $options));
+    }
+
+    public function forUpload(Upload $upload, array $options = []): ConfigHelper
+    {
+        return $this->create($this->provider->get($upload->getConfigClass(), $options));
     }
 }
