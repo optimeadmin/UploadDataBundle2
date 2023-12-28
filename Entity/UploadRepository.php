@@ -22,7 +22,7 @@ class UploadRepository extends ServiceEntityRepository
     public function getQueryForType($type, array $filters = [], $order = 'DESC')
     {
         $q = $this->createQueryBuilder('upload')
-            ->select('upload, actions, HIDDEN attributes.id')
+            ->select('upload, actions')
             ->leftJoin('upload.actions', 'actions')
             ->leftJoin('upload.attributes', 'attributes')
             ->where('upload.configClass = :type')
@@ -43,17 +43,25 @@ class UploadRepository extends ServiceEntityRepository
         }
 
         if ($attributes = (array)($filters['attributes'] ?? [])) {
-//            foreach ($attributes as $key => $value) {
-//                $joinKey = 'attr' . $key;
-//                $keyParam = "attr_key_" . $key;
-//                $valueParam = "attr_value_" . $key;
-//                $q->join(
-//                    'upload.attributes',
-//                    'attr' . $key,
-//                    'with',
-//                    "{$joinKey}.name = :{$keyParam} AND {$joinKey}.value = :{$valueParam}"
-//                )->setParameter($keyParam, $key)->setParameter($valueParam, $value);
-//            }
+//            $q->addSelect('CONCAT(CONCAT(attributes.name, \'---\'), attributes.value) AS HIDDEN attr_val');
+
+            foreach ($attributes as $key => $value) {
+                $alias = 'attr_' . $key;
+                $keyParam = "attr_key_" . $key;
+                $valueParam = "attr_value_" . $key;
+
+                $subQ = $this
+                    ->getEntityManager()
+                    ->createQueryBuilder()
+                    ->select($alias)
+                    ->from(UploadAttribute::class, $alias)
+                    ->andWhere("{$alias}.upload = upload")
+                    ->andWhere("{$alias}.name = :{$keyParam}")
+                    ->andWhere("{$alias}.value = :{$valueParam}");
+
+                $q->andWhere($q->expr()->exists($subQ->getDQL()));
+                $q->setParameter($keyParam, $key)->setParameter($valueParam, $value);
+            }
         }
 
         return $q;
