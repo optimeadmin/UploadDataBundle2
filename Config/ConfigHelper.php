@@ -28,7 +28,7 @@ class ConfigHelper
     /**
      * @var Exception|null
      */
-    private ?Exception $lastException;
+    private ?Exception $lastException = null;
 
     public function __construct(
         private ResolvedUploadConfig $resolvedConfig,
