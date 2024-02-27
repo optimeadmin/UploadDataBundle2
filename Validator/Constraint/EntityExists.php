@@ -71,9 +71,9 @@ class EntityExists extends Constraint
         return call_user_func($this->query_builder, $er);
     }
 
-    public function callComparator($entity, $value)
+    public function callComparator($entity, UploadedItem $item, $value)
     {
-        return call_user_func($this->comparator, $entity, $value, $this->property);
+        return call_user_func($this->comparator, $entity, $item, $value);
     }
 
     public function callSuccess($entity, UploadedItem $item, $value)

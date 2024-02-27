@@ -108,7 +108,7 @@ class EntityExistsValidator extends ConstraintValidator
             : $this->createDefaultComparator($constraint->property);
 
         foreach ($this->getData($constraint) as $item) {
-            if ($comparator($item, $value)) {
+            if ($comparator($item, $this->context->getRoot(), $value)) {
                 return $item;
             }
         }
@@ -147,8 +147,8 @@ class EntityExistsValidator extends ConstraintValidator
      */
     private function createDefaultComparator($property)
     {
-        return function ($item, $value) use ($property) {
-            return $this->propertyAccesor->getValue($item, $property) == $value;
+        return function ($dbItem, $excelItem, $value) use ($property) {
+            return $this->propertyAccesor->getValue($dbItem, $property) == $value;
         };
     }
 
