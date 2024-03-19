@@ -76,25 +76,4 @@ class UploadRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
-
-    /**
-     * @param mixed $id
-     * @param int $lockMode
-     * @param null $lockVersion
-     *
-     * @return mixed|null|Upload
-     */
-    public function find($id, $lockMode = LockMode::NONE, $lockVersion = null)
-    {
-        return $this->createQueryBuilder('upload')
-            ->select('upload, actions, attributes')
-            ->leftJoin('upload.actions', 'actions')
-            ->leftJoin('upload.attributes', 'attributes')
-            ->where('upload.id = :id')
-            ->setParameter('id', $id, \PDO::PARAM_INT)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
-
 }
