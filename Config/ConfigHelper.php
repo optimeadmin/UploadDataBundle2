@@ -73,13 +73,11 @@ class ConfigHelper
         } catch (\Exception $e) {
             $this->lastException = $e;
 
-            if ($this->logger) {
-                $this->logger->critical('No se pudo procesar la validación del excel', [
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-            }
+            $this->logger?->critical('No se pudo procesar la validación del excel', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
 
             if ($throwOnFail) {
                 throw $e;
@@ -96,13 +94,11 @@ class ConfigHelper
         } catch (\Exception $e) {
             $this->lastException = $e;
 
-            if ($this->logger) {
-                $this->logger->critical('No se pudo procesar la validación del excel', [
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-            }
+            $this->logger?->critical('No se pudo procesar la validación del excel', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
 
             if ($throwOnFail) {
                 throw $e;
@@ -119,13 +115,11 @@ class ConfigHelper
         } catch (\Exception $e) {
             $this->lastException = $e;
 
-            if ($this->logger) {
-                $this->logger->critical('No se pudo procesar la transferencia del excel', [
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-            }
+            $this->logger?->critical('No se pudo procesar la transferencia del excel', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
 
             if ($throwOnFail) {
                 throw $e;
@@ -142,14 +136,12 @@ class ConfigHelper
         } catch (\Exception $e) {
             $this->lastException = $e;
 
-            if ($this->logger) {
-                $this->logger->critical('No se pudo procesar la acción {action} del excel', [
-                    'action' => $action,
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-            }
+            $this->logger?->critical('No se pudo procesar la acción {action} del excel', [
+                'action' => $action,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
 
             if ($throwOnFail) {
                 throw $e;
@@ -202,13 +194,11 @@ class ConfigHelper
         } catch (\Exception $e) {
             $this->lastException = $e;
 
-            if ($this->logger) {
-                $this->logger->critical('No se pudo procesar la eliminación del excel', [
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-            }
+            $this->logger?->critical('No se pudo procesar la eliminación del excel', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
 
             if ($throwOnFail) {
                 throw $e;
