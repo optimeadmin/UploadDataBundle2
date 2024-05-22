@@ -210,9 +210,11 @@ class ConfigHelper
 
     public function restoreInProgress(Upload $upload)
     {
+        $lastAction = null;
         try {
             /** @var UploadAction $action */
             foreach ($upload->getActions() as $action) {
+                $lastAction = $action;
                 if ($action->isInProgress()) {
                     $action->setNotComplete();
                     $this->entityManager->persist($action);
@@ -221,7 +223,11 @@ class ConfigHelper
 
             $this->entityManager->flush();
         } catch (\Exception $exception) {
-
+            $this->logger?->error('No se pudo restaurar accion de upload', [
+                'upload' => $upload->getId(),
+                'action' => $lastAction?->getId(),
+                'exception' => $exception,
+            ]);
         }
     }
 

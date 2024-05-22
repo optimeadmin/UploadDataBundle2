@@ -369,7 +369,7 @@ class UploadConfigHandler
             if ($this->objectManager->isOpen()) {
                 $action->setNotComplete();
                 $this->objectManager->persist($upload);
-                $this->objectManager->flush($upload);
+                $this->objectManager->flush();
             }
         } catch (\Exception $e) {
         }

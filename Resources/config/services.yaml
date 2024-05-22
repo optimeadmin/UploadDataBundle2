@@ -22,3 +22,8 @@ services:
 
     Manuel\Bundle\UploadDataBundle\Entity\UploadRepository: ~
     Manuel\Bundle\UploadDataBundle\Entity\UploadedItemRepository: ~
+
+    Manuel\Bundle\UploadDataBundle\Profiler\ExceptionProfiler:
+        arguments:
+            - ""
+            - "@?profiler"

@@ -25,7 +25,6 @@ class ExceptionProfiler
         if (null === $this->profiler) {
             return;
         }
-
         if (!$this->profiler->has('exception')) {
             return;
         }
@@ -33,7 +32,7 @@ class ExceptionProfiler
         $this->eventDispatcher->addListener(
             KernelEvents::RESPONSE,
             function (ResponseEvent $event) use ($exception) {
-                if (!$event->isMasterRequest()) {
+                if (!$event->isMainRequest()) {
                     return;
                 }
 
