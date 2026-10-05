@@ -166,6 +166,73 @@ public function configureColumns(array $options): ConfigColumns
 
 Con este método realizaremos el proceso de transferencia de los datos leidos a la aplicación.
 
+## RawUploadConfig
+
+Cuando hay que procesar miles de filas, el [UploadConfig](../../Config/UploadConfig.php) normal se queda corto de memoria: cada fila se guarda como entidad `UploadedItem`, y el `persist()` de todas ellas es el pico. Para ese caso está [RawUploadConfig](../../Config/RawUploadConfig.php). Maneja los items con DBAL, sobre la misma tabla `upload_data_uploaded_item`, sin crear la entidad y sin pasar por el identity map. La fila sigue siendo la misma; lo que cambia es que Doctrine no la tiene en memoria. Con eso la lectura y la validación trabajan de a 500 filas y sueltan cada página al terminar, en lugar de acumular las miles hasta el final.
+
+`configureColumns()` se escribe igual. La clase base pasa a ser `RawUploadConfig`. `transfer()` queda vacío a propósito y el cuerpo va en `transferRaw()`. `validateItem()` no se llama; si hacía falta lógica extra, va en `validateRawRow()`.
+
+```php
+use Manuel\Bundle\UploadDataBundle\Config\RawUploadConfig;
+use Manuel\Bundle\UploadDataBundle\Data\RawUploadedItem;
+use Manuel\Bundle\UploadDataBundle\Entity\Upload;
+use Manuel\Bundle\UploadDataBundle\Validator\ColumnError;
+use Manuel\Bundle\UploadDataBundle\Validator\GroupedConstraintViolations;
+
+class UploadCardConfig extends RawUploadConfig
+{
+    public function configureColumns(array $options): ConfigColumns
+    {
+        return ConfigColumns::new()
+            ->add('email')
+            ->validate()
+                ->assertNotBlank()
+                ->assertEmail()
+            ->endValidate()
+            ->add('fecha_nacimiento')
+            ->asDate();
+    }
+
+    public function validateRawRow(RawUploadedItem $item, Upload $upload, GroupedConstraintViolations $errors): void
+    {
+        if ($item['email'] === 'no-allowed-email@email.com') {
+            $errors->addColumnError(new ColumnError('No allowed Email', 'email'));
+        }
+
+        $item['precio_calculado'] = 1200;
+    }
+
+    public function transferRaw(Upload $upload, iterable $items): void
+    {
+        foreach ($items as $item) {
+            $card = new Card();
+            $card->setEmail($item['email']);
+            $card->setNacimiento($item->getDate('fecha_nacimiento'));
+
+            $this->objectManager->persist($card);
+        }
+
+        $this->objectManager->flush();
+    }
+}
+```
+
+Cada elemento del iterable es un `RawUploadedItem`. Se lee y se escribe como el `UploadedItem`:
+
+```php
+$item['email'];
+$item['precio_calculado'] = 1200;
+$item->getDate('fecha_nacimiento');
+```
+
+Escribir en la fila prende el `UPDATE`. `markForUpdate()` lo fuerza sin cambiar un campo. Una fila que solo se lee no se actualiza.
+
+La lectura, la validación y la transferencia van de a 500 filas. Al cerrar cada página se actualizan solo las marcadas de esas 500 y se sueltan. No hace falta juntarlas para guardarlas al final. Si `transferRaw()` acumula todo el iterable, el pico de memoria se corre a la transferencia.
+
+`getValidItems()` no ve estas filas: la colección en memoria de `Upload` queda vacía. Las válidas llegan en el iterable de `transferRaw()`. Un config es de un camino o del otro; no se mezclan en la misma carga.
+
+En el log de rendimiento el prefijo de este camino es `raw_upload_data:` (`raw_upload_data:read`, `raw_upload_data:validate`, `raw_upload_data:transfer`). El `UploadConfig` normal sigue con `upload_data:`.
+
 ## Cargando y procesando un archivo
 
 Este es un controlador de ejemplo para llevar a cabo la carga de un archivo en diferentes pasos:
