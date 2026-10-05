@@ -16,7 +16,7 @@ interface ReaderInterface
 {
     const EXTRA_FIELDS_NAME = '__EXTRA__';
 
-    public function getData(Upload $upload): array;
+    public function getData(Upload $upload): iterable;
 
     public function getHeaders(Upload $upload): array;
 

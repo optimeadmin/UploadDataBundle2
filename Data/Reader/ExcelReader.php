@@ -26,38 +26,49 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 class ExcelReader extends BaseReader
 {
     private array $extensions = ['xlsx'];
-    private ?array $excelHeaders;
-    private ?array $columnsMapping;
 
-    public function getData(Upload $upload): array
+    public function getData(Upload $upload): iterable
     {
         $filename = $this->resolveFile($upload->getFullFilename());
-        $options = $this->resolveOptions($upload);
-        $rowHeadersIndex = (int) $options['row_headers'];
+        $readOptions = $this->resolveOptions($upload);
+        $rowHeadersIndex = (int) $readOptions['row_headers'];
+        $excelHeaders = $this->readHeaderRow($filename, $rowHeadersIndex);
+        $columnsMapping = $readOptions['columns_mapping'] ?? [];
 
-        $this->excelHeaders = $this->readHeaderRow($filename, $rowHeadersIndex);
-        $this->columnsMapping = $options['columns_mapping'] ?? [];
-        $formattedData = [];
+        $options = new Options();
+        $options->SHOULD_FORMAT_DATES = false;
+        $options->SHOULD_PRESERVE_EMPTY_ROWS = true;
 
-        $this->eachRow($filename, function (int $rowIndex, Row $row) use ($rowHeadersIndex, &$formattedData): void {
-            if ($rowIndex <= $rowHeadersIndex || $row->isEmpty()) {
-                return;
+        $reader = new Reader($options);
+        $reader->open($filename);
+
+        try {
+            foreach ($this->activeSheet($reader)->getRowIterator() as $rowIndex => $row) {
+                $rowIndex = (int) $rowIndex;
+
+                if ($rowIndex <= $rowHeadersIndex || $row->isEmpty()) {
+                    continue;
+                }
+
+                $formattedRow = [];
+
+                foreach ($row->getCells() as $columnIndex => $cell) {
+                    $value = $this->cellValue($cell);
+                    $this->addValue(
+                        $formattedRow,
+                        (int) $columnIndex,
+                        $value,
+                        $value,
+                        $excelHeaders,
+                        $columnsMapping,
+                    );
+                }
+
+                yield $rowIndex => $formattedRow;
             }
-
-            $formattedRow = [];
-
-            foreach ($row->getCells() as $columnIndex => $cell) {
-                $value = $this->cellValue($cell);
-                $this->addValue($formattedRow, (int) $columnIndex, $value, $value);
-            }
-
-            $formattedData[$rowIndex] = $formattedRow;
-        });
-
-        $this->excelHeaders = null;
-        $this->columnsMapping = null;
-
-        return $formattedData;
+        } finally {
+            $reader->close();
+        }
     }
 
     public function getHeaders(Upload $upload): array
@@ -203,25 +214,21 @@ class ExcelReader extends BaseReader
         array &$row,
         int $columnIndex,
         mixed $rawValue,
-        mixed $formattedValue
+        mixed $formattedValue,
+        array $excelHeaders,
+        array $columnsMapping,
     ): void {
-        if (null === $this->excelHeaders || null === $this->columnsMapping) {
-            throw new LogicException(
-                "No se puede llamar a 'getArrayValue()' sin establecer valores para 'excelHeaders' y 'columnsMapping'"
-            );
-        }
-
         $excelColName = $this->columnLetter($columnIndex);
 
-        if (in_array($excelColName, $this->columnsMapping, true)) {
-            $configColumnName = array_search($excelColName, $this->columnsMapping, true);
+        if (in_array($excelColName, $columnsMapping, true)) {
+            $configColumnName = array_search($excelColName, $columnsMapping, true);
 
             $row[$configColumnName] = [
                 'with_format' => $formattedValue,
                 'without_format' => $rawValue,
             ];
-        } elseif (isset($this->excelHeaders[$excelColName])) {
-            $row[self::EXTRA_FIELDS_NAME][$this->excelHeaders[$excelColName]] = [
+        } elseif (isset($excelHeaders[$excelColName])) {
+            $row[self::EXTRA_FIELDS_NAME][$excelHeaders[$excelColName]] = [
                 'with_format' => $formattedValue,
                 'without_format' => $rawValue,
             ];

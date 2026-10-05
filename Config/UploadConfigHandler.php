@@ -110,9 +110,11 @@ class UploadConfigHandler
 
             $columnsMapper = $resolvedConfig->getConfigColumns()->getColumns();
             $hasConditionalRowFilter = $config instanceof ConditionalRowInterface;
+            $delivered = 0;
             $total = 0;
 
             foreach ($data as $dataRowNumber => $item) {
+                ++$delivered;
                 $formattedItemData = [];
 
                 foreach ($item as $colName => $value) {
@@ -145,8 +147,8 @@ class UploadConfigHandler
             $upload->setTotal($total);
 
             if ($hasConditionalRowFilter) {
-                $upload->setAttributeValue('__real_total__', count($data));
-                $upload->setAttributeValue('__excluded_count__', count($data) - $total);
+                $upload->setAttributeValue('__real_total__', $delivered);
+                $upload->setAttributeValue('__excluded_count__', $delivered - $total);
             }
 
             $this->completeAction($upload, $action);
