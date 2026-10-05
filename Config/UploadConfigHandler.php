@@ -9,6 +9,7 @@ namespace Manuel\Bundle\UploadDataBundle\Config;
 use Doctrine\ORM\EntityManagerInterface;
 use Manuel\Bundle\UploadDataBundle\Data\Reader\ReaderLoader;
 use Manuel\Bundle\UploadDataBundle\Data\UploadedFileHelperInterface;
+use Manuel\Bundle\UploadDataBundle\Data\UploadedItemBulkInsert;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadAction;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadedItem;
@@ -41,6 +42,7 @@ class UploadConfigHandler
         private ExceptionProfiler $exceptionProfiler,
         private string $uploadDir,
         private UploadPerformance $performance,
+        private UploadedItemBulkInsert $bulkInsert,
     ) {
     }
 
@@ -115,8 +117,8 @@ class UploadConfigHandler
             $delivered = 0;
             $total = 0;
 
-            $this->performance->checkpoint('upload_data:read.before', $upload->getId());
-            $read = $this->performance->start('upload_data:read');
+            $this->performance->checkpoint($this->performanceName($config, 'read.before'), $upload->getId());
+            $read = $this->performance->start($this->performanceName($config, 'read'));
 
             try {
                 foreach ($data as $dataRowNumber => $item) {
@@ -145,9 +147,17 @@ class UploadConfigHandler
                         continue;
                     }
 
-                    $uploadedItem = $upload->addItem($formattedItemData, $dataRowNumber);
-                    $this->objectManager->persist($uploadedItem);
+                    if ($config instanceof RawUploadConfig) {
+                        $this->bulkInsert->add((int) $upload->getId(), $dataRowNumber, $formattedItemData);
+                    } else {
+                        $uploadedItem = $upload->addItem($formattedItemData, $dataRowNumber);
+                        $this->objectManager->persist($uploadedItem);
+                    }
                     $total++;
+                }
+
+                if ($config instanceof RawUploadConfig) {
+                    $this->bulkInsert->flushPending();
                 }
             } finally {
                 $this->performance->stop($read, $upload->getId(), ['rows' => $delivered]);
@@ -160,7 +170,7 @@ class UploadConfigHandler
                 $upload->setAttributeValue('__excluded_count__', $delivered - $total);
             }
 
-            $persisted = $this->performance->start('upload_data:read.persisted');
+            $persisted = $this->performance->start($this->performanceName($config, 'read.persisted'));
 
             try {
                 $this->completeAction($upload, $action);
@@ -172,6 +182,10 @@ class UploadConfigHandler
                 $config->onPostRead($upload);
             }
         } catch (\Exception $e) {
+            if ($config instanceof RawUploadConfig && null !== $upload->getId()) {
+                $this->bulkInsert->deleteByUpload((int) $upload->getId());
+            }
+
             $this->onActionException($e, $action, $upload);
         }
 
@@ -202,65 +216,81 @@ class UploadConfigHandler
 
             $validations = $resolvedConfig->getConfigColumns()->getValidations();
             $valid = $invalids = 0;
-            $items = $upload->getItems();
+            $onlyInvalids = $isActionCompleted && $onlyInvalids;
 
-            if ($isActionCompleted && $onlyInvalids) {
+            if ($onlyInvalids) {
                 $valid = $upload->getValids();
-
-                $items = $items->filter(function (UploadedItem $item) use ($config) {
-                    return !$config->isAlreadyProcessedItemValid($item);
-                });
             }
 
             /** @var UploadedItem $item */
-            $this->performance->checkpoint('upload_data:validate.before', $upload->getId());
-            $validate = $this->performance->start('upload_data:validate');
+            $this->performance->checkpoint($this->performanceName($config, 'validate.before'), $upload->getId());
+            $validate = $this->performance->start($this->performanceName($config, 'validate'));
 
             try {
-                foreach ($items as $item) {
-                    if ($config->itsAnExcludedItem($item)) {
-                        $item->setValid(true);
-                        ++$valid;
+                if ($config instanceof RawUploadConfig) {
+                    $this->validateRawPages(
+                        $config,
+                        $upload,
+                        $validations,
+                        $validationGroup,
+                        $valid,
+                        $invalids,
+                        $onlyInvalids,
+                    );
+                } else {
+                    $items = $upload->getItems();
 
-                        $this->objectManager->persist($item);
-                        continue;
+                    if ($onlyInvalids) {
+                        $items = $items->filter(function (UploadedItem $item) use ($config) {
+                            return !$config->isAlreadyProcessedItemValid($item);
+                        });
                     }
 
-                    $violations = new GroupedConstraintViolations();
-                    $data = $item->getData();
-                    foreach ($validations as $group => $columnValidations) {
-                        $context = $this->validator->createValidationContext($item);
-                        foreach ($columnValidations as $column => $constraints) {
-                            $value = array_key_exists($column, $data) ? $data[$column] : null;
-                            $context->atPath($column)->validate($value, $constraints, array('Default', $validationGroup));
+                    foreach ($items as $item) {
+                        if ($config->itsAnExcludedItem($item)) {
+                            $item->setValid(true);
+                            ++$valid;
+
+                            $this->objectManager->persist($item);
+                            continue;
                         }
 
-                        // por cada categoria|grupo de validaciones, toca saber si hubieron errores.
-                        $violations->addAll($group, $context->getViolations());
+                        $violations = new GroupedConstraintViolations();
+                        $data = $item->getData();
+                        foreach ($validations as $group => $columnValidations) {
+                            $context = $this->validator->createValidationContext($item);
+                            foreach ($columnValidations as $column => $constraints) {
+                                $value = array_key_exists($column, $data) ? $data[$column] : null;
+                                $context->atPath($column)->validate($value, $constraints, array('Default', $validationGroup));
+                            }
+
+                            // por cada categoria|grupo de validaciones, toca saber si hubieron errores.
+                            $violations->addAll($group, $context->getViolations());
+                        }
+
+                        if ($violations->hasViolationsForGroup('default')) {
+                            // Si hay errores en el grupo por defecto, lo marcamos en el item.
+                            $item->setHasDefaultErrors();
+                            // esto con la finalidad de poder obviar validaciones propias, cuando las
+                            // validaciones mínimas no fueron superadas.
+                        }
+
+                        // iniciamos un nuevo contexto para las validaciones propias.
+                        $context = $this->validator->createValidationContext($item);
+                        $config->validateItem($item, $context, $upload);
+
+                        $this->mergeViolations($violations, $context);
+
+                        $item->setErrors($violations);
+                        $item->setValid($config->shouldItemCanBeConsideredAsValid($violations, $item));
+                        if ($item->getValid()) {
+                            ++$valid;
+                        } else {
+                            ++$invalids;
+                        }
+
+                        $this->objectManager->persist($item);
                     }
-
-                    if ($violations->hasViolationsForGroup('default')) {
-                        // Si hay errores en el grupo por defecto, lo marcamos en el item.
-                        $item->setHasDefaultErrors();
-                        // esto con la finalidad de poder obviar validaciones propias, cuando las
-                        // validaciones mínimas no fueron superadas.
-                    }
-
-                    // iniciamos un nuevo contexto para las validaciones propias.
-                    $context = $this->validator->createValidationContext($item);
-                    $config->validateItem($item, $context, $upload);
-
-                    $this->mergeViolations($violations, $context);
-
-                    $item->setErrors($violations);
-                    $item->setValid($config->shouldItemCanBeConsideredAsValid($violations, $item));
-                    if ($item->getValid()) {
-                        ++$valid;
-                    } else {
-                        ++$invalids;
-                    }
-
-                    $this->objectManager->persist($item);
                 }
             } finally {
                 $this->performance->stop($validate, $upload->getId());
@@ -293,11 +323,15 @@ class UploadConfigHandler
         try {
             $this->setInProcessAction($action);
 
-            $this->performance->checkpoint('upload_data:transfer.before', $upload->getId());
-            $transfer = $this->performance->start('upload_data:transfer');
+            $this->performance->checkpoint($this->performanceName($config, 'transfer.before'), $upload->getId());
+            $transfer = $this->performance->start($this->performanceName($config, 'transfer'));
 
             try {
-                $config->transfer($upload);
+                if ($config instanceof RawUploadConfig) {
+                    $config->transferRaw($upload, $this->bulkInsert->iterate((int) $upload->getId(), true));
+                } else {
+                    $config->transfer($upload);
+                }
             } finally {
                 $this->performance->stop($transfer, $upload->getId());
             }
@@ -459,6 +493,53 @@ class UploadConfigHandler
         $this->profileException($exception);
 
         throw new UploadProcessException($exception, $action->getName());
+    }
+
+    private function performanceName(UploadConfig $config, string $name): string
+    {
+        $prefix = $config instanceof RawUploadConfig ? 'raw_upload_data' : 'upload_data';
+
+        return $prefix.':'.$name;
+    }
+
+    private function validateRawPages(
+        RawUploadConfig $config,
+        Upload $upload,
+        array $validations,
+        string $validationGroup,
+        int &$valid,
+        int &$invalids,
+        bool $onlyInvalids,
+    ): void {
+        foreach ($this->bulkInsert->pages((int) $upload->getId(), $onlyInvalids ? false : null) as $page) {
+            foreach ($page as $item) {
+                $violations = new GroupedConstraintViolations();
+                $data = $item->getData() ?? [];
+
+                foreach ($validations as $group => $columnValidations) {
+                    $context = $this->validator->createValidationContext($item);
+                    foreach ($columnValidations as $column => $constraints) {
+                        $value = array_key_exists($column, $data) ? $data[$column] : null;
+                        $context->atPath($column)->validate($value, $constraints, ['Default', $validationGroup]);
+                    }
+
+                    $violations->addAll($group, $context->getViolations());
+                }
+
+                $config->validateRawRow($item, $upload, $violations);
+
+                $item->setErrors($violations);
+                $item->setValid(!$violations->hasViolationsForGroup('default'));
+
+                if ($item->getValid()) {
+                    ++$valid;
+                } else {
+                    ++$invalids;
+                }
+            }
+
+            $this->bulkInsert->updateMarked($page);
+        }
     }
 
     private function mergeViolations(

@@ -5,7 +5,6 @@
 
 namespace Manuel\Bundle\UploadDataBundle\Validator;
 
-use Manuel\Bundle\UploadDataBundle\Entity\UploadedItem;
 use Symfony\Component\Validator\Context\ExecutionContextFactory;
 use Symfony\Component\Validator\Context\ExecutionContextFactoryInterface;
 use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
@@ -37,7 +36,7 @@ class UploadedItemValidator
         );
     }
 
-    public function createValidationContext(UploadedItem $item): ContextualValidatorInterface
+    public function createValidationContext(object $item): ContextualValidatorInterface
     {
         return $this->validator->inContext($this->contextFactory->createContext(
             $this->validator,
