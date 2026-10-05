@@ -14,5 +14,5 @@ interface ConfigReadFiltersAwareInterface
 {
     public function onPreRead(Upload $upload): void;
 
-    public function onPostRead(Upload $upload): void;
+    public function onPostRead(Upload $upload, iterable $items): void;
 }

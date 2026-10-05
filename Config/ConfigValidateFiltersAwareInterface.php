@@ -12,7 +12,7 @@ use Manuel\Bundle\UploadDataBundle\Entity\Upload;
  */
 interface ConfigValidateFiltersAwareInterface
 {
-    public function onPreValidate(Upload $upload): void;
+    public function onPreValidate(Upload $upload, iterable $items): void;
 
-    public function onPostValidate(Upload $upload): void;
+    public function onPostValidate(Upload $upload, iterable $items): void;
 }

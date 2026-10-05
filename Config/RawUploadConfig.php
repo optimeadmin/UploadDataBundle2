@@ -4,7 +4,7 @@ namespace Manuel\Bundle\UploadDataBundle\Config;
 
 use Manuel\Bundle\UploadDataBundle\Data\RawUploadedItem;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
-use Manuel\Bundle\UploadDataBundle\Validator\GroupedConstraintViolations;
+use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
 
 abstract class RawUploadConfig extends UploadConfig
 {
@@ -16,8 +16,8 @@ abstract class RawUploadConfig extends UploadConfig
 
     public function validateRawRow(
         RawUploadedItem $item,
+        ContextualValidatorInterface $context,
         Upload $upload,
-        GroupedConstraintViolations $errors,
     ): void {
     }
 }

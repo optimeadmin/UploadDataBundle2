@@ -112,7 +112,7 @@ class RawUploadedItem implements ArrayAccess
         $this->touch();
     }
 
-    public function getValid(): ?bool
+    public function isValid(): ?bool
     {
         return $this->valid;
     }

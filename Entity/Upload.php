@@ -370,7 +370,7 @@ class Upload
     {
         return $this->getItems()
             ->filter(function (UploadedItem $item) {
-                return $item->getValid();
+                return $item->isValid();
             });
     }
 
@@ -389,7 +389,7 @@ class Upload
     {
         return $this->getItems()
             ->filter(function (UploadedItem $item) {
-                return !$item->getValid();
+                return !$item->isValid();
             });
     }
 

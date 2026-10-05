@@ -114,14 +114,14 @@ class UploadedItemBulkInsert
                     json_encode($item->getData() ?? [], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                     $item->getExtras() === null ? null : json_encode($item->getExtras(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                     $item->errorsPayload() === null ? null : json_encode($item->errorsPayload(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                    $item->getValid() === null ? null : (int) $item->getValid(),
+                    $item->isValid() === null ? null : (int) $item->isValid(),
                     $item->getId(),
                 ],
                 [
                     ParameterType::STRING,
                     $item->getExtras() === null ? ParameterType::NULL : ParameterType::STRING,
                     $item->errorsPayload() === null ? ParameterType::NULL : ParameterType::STRING,
-                    $item->getValid() === null ? ParameterType::NULL : ParameterType::INTEGER,
+                    $item->isValid() === null ? ParameterType::NULL : ParameterType::INTEGER,
                     ParameterType::INTEGER,
                 ]
             );

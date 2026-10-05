@@ -170,14 +170,14 @@ Con este método realizaremos el proceso de transferencia de los datos leidos a 
 
 Cuando hay que procesar miles de filas, el [UploadConfig](../../Config/UploadConfig.php) normal se queda corto de memoria: cada fila se guarda como entidad `UploadedItem`, y el `persist()` de todas ellas es el pico. Para ese caso está [RawUploadConfig](../../Config/RawUploadConfig.php). Maneja los items con DBAL, sobre la misma tabla `upload_data_uploaded_item`, sin crear la entidad y sin pasar por el identity map. La fila sigue siendo la misma; lo que cambia es que Doctrine no la tiene en memoria. Con eso la lectura y la validación trabajan de a 500 filas y sueltan cada página al terminar, en lugar de acumular las miles hasta el final.
 
-`configureColumns()` se escribe igual. La clase base pasa a ser `RawUploadConfig`. `transfer()` queda vacío a propósito y el cuerpo va en `transferRaw()`. `validateItem()` no se llama; si hacía falta lógica extra, va en `validateRawRow()`.
+`configureColumns()` se escribe igual. La clase base pasa a ser `RawUploadConfig`. `transfer()` queda vacío a propósito y el cuerpo va en `transferRaw()`. `validateItem()` no se llama; si hacía falta lógica extra por fila, va en `validateRawRow()`.
 
 ```php
 use Manuel\Bundle\UploadDataBundle\Config\RawUploadConfig;
 use Manuel\Bundle\UploadDataBundle\Data\RawUploadedItem;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
 use Manuel\Bundle\UploadDataBundle\Validator\ColumnError;
-use Manuel\Bundle\UploadDataBundle\Validator\GroupedConstraintViolations;
+use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
 
 class UploadCardConfig extends RawUploadConfig
 {
@@ -193,10 +193,10 @@ class UploadCardConfig extends RawUploadConfig
             ->asDate();
     }
 
-    public function validateRawRow(RawUploadedItem $item, Upload $upload, GroupedConstraintViolations $errors): void
+    public function validateRawRow(RawUploadedItem $item, ContextualValidatorInterface $context, Upload $upload): void
     {
         if ($item['email'] === 'no-allowed-email@email.com') {
-            $errors->addColumnError(new ColumnError('No allowed Email', 'email'));
+            $context->getViolations()->add(new ColumnError('No allowed Email', 'email'));
         }
 
         $item['precio_calculado'] = 1200;
@@ -205,6 +205,10 @@ class UploadCardConfig extends RawUploadConfig
     public function transferRaw(Upload $upload, iterable $items): void
     {
         foreach ($items as $item) {
+            if (!$item->isValid()) {
+                continue;
+            }
+
             $card = new Card();
             $card->setEmail($item['email']);
             $card->setNacimiento($item->getDate('fecha_nacimiento'));
@@ -229,7 +233,7 @@ Escribir en la fila prende el `UPDATE`. `markForUpdate()` lo fuerza sin cambiar 
 
 La lectura, la validación y la transferencia van de a 500 filas. Al cerrar cada página se actualizan solo las marcadas de esas 500 y se sueltan. No hace falta juntarlas para guardarlas al final. Si `transferRaw()` acumula todo el iterable, el pico de memoria se corre a la transferencia.
 
-`getValidItems()` no ve estas filas: la colección en memoria de `Upload` queda vacía. Las válidas llegan en el iterable de `transferRaw()`. Un config es de un camino o del otro; no se mezclan en la misma carga.
+`getValidItems()` no ve estas filas: la colección en memoria de `Upload` queda vacía. `onPostRead()`, `onPreValidate()`, `onPostValidate()` y `transferRaw()` reciben todas las filas, válidas e inválidas. El iterable no trae filas hasta que se recorre: la primera vuelta carga 500. Si el método no lo recorre, no se carga ninguna. Para usar solo las válidas se mira `$item->isValid()`. Un config es de un camino o del otro; no se mezclan en la misma carga.
 
 En el log de rendimiento el prefijo de este camino es `raw_upload_data:` (`raw_upload_data:read`, `raw_upload_data:validate`, `raw_upload_data:transfer`). El `UploadConfig` normal sigue con `upload_data:`.
 

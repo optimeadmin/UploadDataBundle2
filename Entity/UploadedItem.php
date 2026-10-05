@@ -72,7 +72,7 @@ class UploadedItem implements \ArrayAccess
         $this->valid = $valid;
     }
 
-    public function getValid(): ?bool
+    public function isValid(): ?bool
     {
         return $this->valid;
     }

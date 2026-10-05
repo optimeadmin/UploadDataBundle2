@@ -86,7 +86,7 @@ abstract class UploadConfig
 
     public function isAlreadyProcessedItemValid(UploadedItem $item): bool
     {
-        return $item->getValid();
+        return $item->isValid();
     }
 
     public function validateItem(UploadedItem $item, ContextualValidatorInterface $context, Upload $upload): void

@@ -179,7 +179,7 @@ class UploadConfigHandler
             }
 
             if ($config instanceof ConfigReadFiltersAwareInterface) {
-                $config->onPostRead($upload);
+                $config->onPostRead($upload, $this->uploadedItems($config, $upload));
             }
         } catch (\Exception $e) {
             if ($config instanceof RawUploadConfig && null !== $upload->getId()) {
@@ -211,7 +211,7 @@ class UploadConfigHandler
             $this->setInProcessAction($action);
 
             if ($config instanceof ConfigValidateFiltersAwareInterface) {
-                $config->onPreValidate($upload);
+                $config->onPreValidate($upload, $this->uploadedItems($config, $upload));
             }
 
             $validations = $resolvedConfig->getConfigColumns()->getValidations();
@@ -283,7 +283,7 @@ class UploadConfigHandler
 
                         $item->setErrors($violations);
                         $item->setValid($config->shouldItemCanBeConsideredAsValid($violations, $item));
-                        if ($item->getValid()) {
+                        if ($item->isValid()) {
                             ++$valid;
                         } else {
                             ++$invalids;
@@ -301,7 +301,7 @@ class UploadConfigHandler
             $this->completeAction($upload, $action);
 
             if ($config instanceof ConfigValidateFiltersAwareInterface) {
-                $config->onPostValidate($upload);
+                $config->onPostValidate($upload, $this->uploadedItems($config, $upload));
             }
         } catch (\Exception $e) {
             $this->onActionException($e, $action, $upload);
@@ -328,7 +328,7 @@ class UploadConfigHandler
 
             try {
                 if ($config instanceof RawUploadConfig) {
-                    $config->transferRaw($upload, $this->bulkInsert->iterate((int) $upload->getId(), true));
+                    $config->transferRaw($upload, $this->bulkInsert->iterate((int) $upload->getId()));
                 } else {
                     $config->transfer($upload);
                 }
@@ -495,6 +495,15 @@ class UploadConfigHandler
         throw new UploadProcessException($exception, $action->getName());
     }
 
+    private function uploadedItems(UploadConfig $config, Upload $upload): iterable
+    {
+        if ($config instanceof RawUploadConfig) {
+            return $this->bulkInsert->iterate((int) $upload->getId());
+        }
+
+        return $upload->getItems();
+    }
+
     private function performanceName(UploadConfig $config, string $name): string
     {
         $prefix = $config instanceof RawUploadConfig ? 'raw_upload_data' : 'upload_data';
@@ -526,12 +535,14 @@ class UploadConfigHandler
                     $violations->addAll($group, $context->getViolations());
                 }
 
-                $config->validateRawRow($item, $upload, $violations);
+                $context = $this->validator->createValidationContext($item);
+                $config->validateRawRow($item, $context, $upload);
+                $this->mergeViolations($violations, $context);
 
                 $item->setErrors($violations);
                 $item->setValid(!$violations->hasViolationsForGroup('default'));
 
-                if ($item->getValid()) {
+                if ($item->isValid()) {
                     ++$valid;
                 } else {
                     ++$invalids;
