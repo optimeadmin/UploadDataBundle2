@@ -244,9 +244,32 @@ final class ConfigColumns implements Countable
         return $this;
     }
 
+    public function asDate(): self
+    {
+        return $this->setValueType('date');
+    }
+
+    public function asDateTime(): self
+    {
+        return $this->setValueType('datetime');
+    }
+
     public function getValidations(): array
     {
         return $this->validations;
+    }
+
+    private function setValueType(string $type): self
+    {
+        if (null === $this->currentColumn) {
+            throw new \LogicException(sprintf(
+                'No puede llamar a "->asDate()" sin antes llamar a "->add(columnName)"'
+            ));
+        }
+
+        $this->columns[$this->currentColumn]['value_type'] = $type;
+
+        return $this;
     }
 
     private function verifyAddConstraint(): void

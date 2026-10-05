@@ -17,6 +17,8 @@ use Manuel\Bundle\UploadDataBundle\Profiler\ExceptionProfiler;
 use Manuel\Bundle\UploadDataBundle\Validator\ColumnError;
 use Manuel\Bundle\UploadDataBundle\Validator\GroupedConstraintViolations;
 use Manuel\Bundle\UploadDataBundle\Validator\UploadedItemValidator;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Validator\ContextualValidatorInterface;
 use Throwable;
@@ -123,9 +125,10 @@ class UploadConfigHandler
                             $withoutFormat = $value;
                         }
 
-                        $formattedItemData[$colName] = call_user_func(
-                            $columnsMapper[$colName]['formatter'],
-                            $withFormat, $withoutFormat
+                        $formattedItemData[$colName] = $this->normalizeColumnValue(
+                            $columnsMapper[$colName],
+                            $withFormat,
+                            $withoutFormat,
                         );
                     }
                 }
@@ -345,6 +348,54 @@ class UploadConfigHandler
         }
 
         $this->objectManager->flush();
+    }
+
+    private function normalizeColumnValue(array $column, mixed $withFormat, mixed $withoutFormat): mixed
+    {
+        $valueType = $column['value_type'] ?? null;
+        $formatter = $column['formatter'];
+
+        if ($valueType === 'date' || $valueType === 'datetime') {
+            $date = $this->toDateTime($withFormat) ?? $this->toDateTime($withoutFormat);
+            $result = $formatter($date, $date ?? $withoutFormat);
+
+            if ($result instanceof DateTimeInterface) {
+                return DateTimeImmutable::createFromInterface($result)->format(
+                    $valueType === 'date' ? 'Y-m-d' : 'Y-m-d H:i:s'
+                );
+            }
+
+            return $result;
+        }
+
+        if ($withFormat instanceof DateTimeInterface) {
+            $withFormat = DateTimeImmutable::createFromInterface($withFormat)->format('Y-m-d H:i:s');
+        }
+
+        if ($withoutFormat instanceof DateTimeInterface) {
+            $withoutFormat = DateTimeImmutable::createFromInterface($withoutFormat)->format('Y-m-d H:i:s');
+        }
+
+        $result = $formatter($withFormat, $withoutFormat);
+
+        if ($result instanceof DateTimeInterface) {
+            return DateTimeImmutable::createFromInterface($result)->format('Y-m-d H:i:s');
+        }
+
+        return $result;
+    }
+
+    private function toDateTime(mixed $value): ?DateTimeImmutable
+    {
+        if ($value instanceof DateTimeImmutable) {
+            return $value;
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return DateTimeImmutable::createFromInterface($value);
+        }
+
+        return null;
     }
 
     private function createUniqueFilename(UploadedFile $file, Upload $upload): string

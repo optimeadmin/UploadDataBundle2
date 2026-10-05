@@ -99,6 +99,43 @@ aliases     | array()           | Permite indicar una serie de strings con otros
 similar     | false             | si es true, permite mapear una columna del archivo que tenga un nombre muy parecido al esperado
 formatter   | callback(){}      | permite definir una función que será llamada al leer cada dato de la columna en el archivo, y en ella podemos modificar el contenido leido para ajustarlo a nuestras necesidades (formatear fechas, convertir textos, etc.).
 
+### asDate() y asDateTime()
+
+Si la celda del Excel es una fecha, el lector la entrega como `DateTimeImmutable`. Para usarla así hay que marcarlo en la columna, después de `add()` y antes de `endValidate()`:
+
+```php
+public function configureColumns(array $options): ConfigColumns
+{
+    return ConfigColumns::new()
+        ->add('fecha_nacimiento')
+        ->asDate()
+        ->validate()
+            ->assertNotBlank()
+        ->endValidate()
+        ->add('registrado_en')
+        ->asDateTime()
+        ->validate()
+            ->assertNotBlank()
+        ->endValidate();
+}
+```
+
+* `asDate()` guarda `Y-m-d`. `asDateTime()` guarda `Y-m-d H:i:s`.
+* El `formatter` de esa columna recibe el `DateTimeImmutable`, o `null` si la celda viene vacía. Si el formatter devuelve otro `DateTimeInterface`, también se guarda en ese formato.
+* En el item, `$item['fecha_nacimiento']` sigue siendo el string. Para obtener el objeto:
+
+```php
+public function transfer(Upload $upload): void
+{
+    foreach ($upload->getValidItems() as $item) {
+        $nacimiento = $item->getDate('fecha_nacimiento'); // ?DateTimeImmutable
+        $registradoEn = $item->getDate('registrado_en');
+    }
+}
+```
+
+`getDate()` también funciona si el upload se vuelve a leer de la base, porque rehace el objeto desde el string guardado.
+
 ### validaciones()
 
 Para añadir validaciones a una columna debemos hacerlo de la siguiente manera:

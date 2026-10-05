@@ -35,6 +35,15 @@ class ReaderLoader
             }
         }
 
-        throw new InvalidArgumentException("No se encontro un reader para el upload #" . $upload->getId());
+        $extension = strtolower(pathinfo((string) $upload->getFullFilename(), PATHINFO_EXTENSION));
+
+        if ($extension === 'xls') {
+            throw new InvalidArgumentException('Los archivos .xls no están soportados. Guarde el archivo como .xlsx.');
+        }
+
+        throw new InvalidArgumentException(sprintf(
+            'No se encontró un lector para el archivo "%s".',
+            $upload->getFilename() ?: $upload->getFullFilename()
+        ));
     }
 }

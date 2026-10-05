@@ -6,26 +6,26 @@
 
 namespace Manuel\Bundle\UploadDataBundle\Data\Reader;
 
+use DateInterval;
+use DateTimeImmutable;
+use DateTimeInterface;
 use LogicException;
 use Manuel\Bundle\UploadDataBundle\Entity\Upload;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Cell\ErrorCell;
+use OpenSpout\Common\Entity\Cell\FormulaCell;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Reader\SheetInterface;
+use OpenSpout\Reader\XLSX\Options;
+use OpenSpout\Reader\XLSX\Reader;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\OptionsResolver\OptionsResolverInterface;
-use function array_search;
-use function current;
-use function dd;
-use function in_array;
 
 /**
  * @autor Manuel Aguirre <programador.manuel@gmail.com>
  */
 class ExcelReader extends BaseReader
 {
-    private array $extensions = ['xls', 'xlsx'];
+    private array $extensions = ['xlsx'];
     private ?array $excelHeaders;
     private ?array $columnsMapping;
 
@@ -33,47 +33,29 @@ class ExcelReader extends BaseReader
     {
         $filename = $this->resolveFile($upload->getFullFilename());
         $options = $this->resolveOptions($upload);
-        $excel = $this->load($filename);
+        $rowHeadersIndex = (int) $options['row_headers'];
 
-        $sheet = $excel->getActiveSheet();
-
-        $rowHeadersIndex = $options['row_headers'];
-        $lastColumn = $sheet->getHighestColumn($rowHeadersIndex);
-
-        $excelHeaders = $sheet->rangeToArray('A' . $rowHeadersIndex
-            . ':' . $lastColumn . $rowHeadersIndex, null, true, true, true);
-
-        $sheet->garbageCollect();
-        $maxRow = $sheet->getHighestRow();
-
-        if ($maxRow <= $rowHeadersIndex) {
-            return [];
-        }
-
-        $rows = range($rowHeadersIndex + 1, $maxRow);
-        $cols = range(1, Coordinate::columnIndexFromString($lastColumn));
-
-        $this->excelHeaders = current($excelHeaders);
+        $this->excelHeaders = $this->readHeaderRow($filename, $rowHeadersIndex);
         $this->columnsMapping = $options['columns_mapping'] ?? [];
         $formattedData = [];
 
-        foreach ($rows as $rowIndex) {
+        $this->eachRow($filename, function (int $rowIndex, Row $row) use ($rowHeadersIndex, &$formattedData): void {
+            if ($rowIndex <= $rowHeadersIndex || $row->isEmpty()) {
+                return;
+            }
+
             $formattedRow = [];
 
-            foreach ($cols as $colIndex) {
-                [$rawValue, $value] = $this->getValuesFromCell($sheet, $colIndex, $rowIndex);
-
-                $this->addValue($formattedRow, $colIndex, $rawValue, $value);
+            foreach ($row->getCells() as $columnIndex => $cell) {
+                $value = $this->cellValue($cell);
+                $this->addValue($formattedRow, (int) $columnIndex, $value, $value);
             }
 
             $formattedData[$rowIndex] = $formattedRow;
-        }
+        });
 
         $this->excelHeaders = null;
         $this->columnsMapping = null;
-
-        $excel->disconnectWorksheets();
-        unset($excel, $sheet);
 
         return $formattedData;
     }
@@ -82,24 +64,8 @@ class ExcelReader extends BaseReader
     {
         $filename = $this->resolveFile($upload->getFullFilename());
         $options = $this->resolveOptions($upload, true);
-        $excel = $this->load($filename);
 
-        $iterator = $excel->getActiveSheet()
-            ->getRowIterator($options['row_headers'])
-            ->current()
-            ->getCellIterator();
-
-//        $iterator->setIterateOnlyExistingCells(false);
-
-        $headers = array();
-        foreach ($iterator as $index => $column) {
-            $headers[$column->getColumn()] = $column->getValue();
-        }
-
-        $excel->disconnectWorksheets();
-        unset($excel);
-
-        return $headers;
+        return $this->readHeaderRow($filename, (int) $options['row_headers']);
     }
 
     public function supports(Upload $upload): bool
@@ -116,50 +82,128 @@ class ExcelReader extends BaseReader
         ]);
     }
 
-    public function loadExcelFromUpload(Upload $upload): Spreadsheet
+    private function readHeaderRow(string $filename, int $rowHeadersIndex): array
     {
-        $filename = $this->resolveFile($upload->getFullFilename());
+        $headers = [];
 
-        return $this->load($filename);
+        $this->eachRow($filename, function (int $rowIndex, Row $row) use ($rowHeadersIndex, &$headers): void {
+            if ($rowIndex !== $rowHeadersIndex) {
+                return;
+            }
+
+            foreach ($row->getCells() as $columnIndex => $cell) {
+                $label = $this->headerLabel($this->cellValue($cell));
+                if ($label === null) {
+                    continue;
+                }
+
+                $headers[$this->columnLetter((int) $columnIndex)] = $label;
+            }
+        });
+
+        return $headers;
     }
 
-    protected function load($filename): Spreadsheet
+    /**
+     * SHOULD_PRESERVE_EMPTY_ROWS hace que key() sea el número real de la fila.
+     * Sin eso, OpenSpout devuelve un contador y una cabecera que no está en la
+     * fila 1 dejaría de coincidir con el Excel. Las filas vacías se ignoran aquí.
+     *
+     * SHOULD_USE_1904_DATES lo rellena la librería al abrir el libro, antes de
+     * crear el lector de filas. No hay que pisarlo.
+     */
+    private function eachRow(string $filename, callable $callback): void
     {
-        return IOFactory::load($filename);
+        $options = new Options();
+        $options->SHOULD_FORMAT_DATES = false;
+        $options->SHOULD_PRESERVE_EMPTY_ROWS = true;
+
+        $reader = new Reader($options);
+        $reader->open($filename);
+
+        try {
+            foreach ($this->activeSheet($reader)->getRowIterator() as $rowIndex => $row) {
+                $callback((int) $rowIndex, $row);
+            }
+        } finally {
+            $reader->close();
+        }
     }
 
-    private function getValuesFromCell(
-        Worksheet $sheet,
-        int $colIndex,
-        int $rowIndex,
-    ): array {
-        $cell = $sheet->getCellByColumnAndRow($colIndex, $rowIndex, false);
+    private function activeSheet(Reader $reader): SheetInterface
+    {
+        $fallback = null;
 
-        if (null !== $cell) {
-            if ($cell->isFormula()) {
-                $rawValue = $cell->getCalculatedValue();
-            } else {
-                $rawValue = $cell->getValue();
+        foreach ($reader->getSheetIterator() as $sheet) {
+            if ($sheet->isActive()) {
+                return $sheet;
             }
-            if ($rawValue !== null) {
-                $value = NumberFormat::toFormattedString(
-                    $rawValue, $cell->getStyle()->getNumberFormat()->getFormatCode()
-                );
-            } else {
-                $value = null;
-            }
-        } else {
-            $rawValue = $value = null;
+
+            $fallback ??= $sheet;
         }
 
-        return [$rawValue, $value];
+        if (null === $fallback) {
+            throw new LogicException('El archivo no tiene hojas.');
+        }
+
+        return $fallback;
+    }
+
+    private function cellValue(Cell $cell): mixed
+    {
+        if ($cell instanceof FormulaCell) {
+            // Sin nodo <v>, OpenSpout entrega 0 en fórmulas numéricas. Un cero
+            // cacheado de verdad no se puede distinguir de esa ausencia.
+            $value = $cell->getComputedValue();
+        } elseif ($cell instanceof ErrorCell) {
+            $value = $cell->getRawValue();
+        } else {
+            $value = $cell->getValue();
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return DateTimeImmutable::createFromInterface($value);
+        }
+
+        if ($value instanceof DateInterval || $value === null || $value === '') {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function headerLabel(mixed $value): ?string
+    {
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
+    }
+
+    private function columnLetter(int $zeroBasedIndex): string
+    {
+        $index = $zeroBasedIndex + 1;
+        $letter = '';
+
+        while ($index > 0) {
+            $modulo = ($index - 1) % 26;
+            $letter = chr(65 + $modulo).$letter;
+            $index = intdiv($index - 1, 26);
+        }
+
+        return $letter;
     }
 
     private function addValue(
         array &$row,
-        int $colIndex,
-        ?string $rawValue,
-        ?string $formattedValue
+        int $columnIndex,
+        mixed $rawValue,
+        mixed $formattedValue
     ): void {
         if (null === $this->excelHeaders || null === $this->columnsMapping) {
             throw new LogicException(
@@ -167,10 +211,10 @@ class ExcelReader extends BaseReader
             );
         }
 
-        $excelColName = Coordinate::stringFromColumnIndex($colIndex);
+        $excelColName = $this->columnLetter($columnIndex);
 
-        if (in_array($excelColName, $this->columnsMapping)) {
-            $configColumnName = array_search($excelColName, $this->columnsMapping);
+        if (in_array($excelColName, $this->columnsMapping, true)) {
+            $configColumnName = array_search($excelColName, $this->columnsMapping, true);
 
             $row[$configColumnName] = [
                 'with_format' => $formattedValue,

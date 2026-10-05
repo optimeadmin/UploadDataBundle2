@@ -135,6 +135,34 @@ class UploadedItem implements \ArrayAccess
         return $this->fileRowNumber;
     }
 
+    public function getDate(string $column): ?\DateTimeImmutable
+    {
+        $value = $this->get($column);
+
+        if ($value instanceof \DateTimeImmutable) {
+            return $value;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return \DateTimeImmutable::createFromInterface($value);
+        }
+
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        foreach (['!Y-m-d', '!Y-m-d H:i:s', \DateTimeInterface::ATOM] as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $value);
+            $errors = \DateTimeImmutable::getLastErrors();
+
+            if ($date instanceof \DateTimeImmutable && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))) {
+                return $date;
+            }
+        }
+
+        return null;
+    }
+
     public function getErrorsAsString(string $separator = ', ', bool $showKeys = false, bool $allGroups = false): string
     {
         return $this->getErrors()->toString($separator, $showKeys, $allGroups);

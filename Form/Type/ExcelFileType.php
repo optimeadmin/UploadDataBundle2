@@ -25,7 +25,6 @@ class ExcelFileType extends AbstractType
     public function configureOptions(OptionsResolver $resolver)
     {
         $resolver->setDefault('mime_types', [
-            'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
         $resolver->setDefault(
@@ -39,6 +38,7 @@ class ExcelFileType extends AbstractType
                 new File([
                     'mimeTypes' => $options['mime_types'],
                     'mimeTypesMessage' => $options['mime_types_message'],
+                    'extensions' => ['xlsx'],
                 ]),
             ];
         });
