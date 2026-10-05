@@ -14,6 +14,7 @@ use Manuel\Bundle\UploadDataBundle\Entity\UploadAction;
 use Manuel\Bundle\UploadDataBundle\Entity\UploadedItem;
 use Manuel\Bundle\UploadDataBundle\Exception\UploadProcessException;
 use Manuel\Bundle\UploadDataBundle\Profiler\ExceptionProfiler;
+use Manuel\Bundle\UploadDataBundle\Profiler\UploadPerformance;
 use Manuel\Bundle\UploadDataBundle\Validator\ColumnError;
 use Manuel\Bundle\UploadDataBundle\Validator\GroupedConstraintViolations;
 use Manuel\Bundle\UploadDataBundle\Validator\UploadedItemValidator;
@@ -39,6 +40,7 @@ class UploadConfigHandler
         private UploadedFileHelperInterface $uploadedFileHelper,
         private ExceptionProfiler $exceptionProfiler,
         private string $uploadDir,
+        private UploadPerformance $performance,
     ) {
     }
 
@@ -113,35 +115,42 @@ class UploadConfigHandler
             $delivered = 0;
             $total = 0;
 
-            foreach ($data as $dataRowNumber => $item) {
-                ++$delivered;
-                $formattedItemData = [];
+            $this->performance->checkpoint('upload_data:read.before', $upload->getId());
+            $read = $this->performance->start('upload_data:read');
 
-                foreach ($item as $colName => $value) {
-                    if (isset($columnsMapper[$colName])) {
-                        if (is_array($value)) {
-                            $withFormat = $value['with_format'];
-                            $withoutFormat = $value['without_format'];
-                        } else {
-                            $withFormat = $value;
-                            $withoutFormat = $value;
+            try {
+                foreach ($data as $dataRowNumber => $item) {
+                    ++$delivered;
+                    $formattedItemData = [];
+
+                    foreach ($item as $colName => $value) {
+                        if (isset($columnsMapper[$colName])) {
+                            if (is_array($value)) {
+                                $withFormat = $value['with_format'];
+                                $withoutFormat = $value['without_format'];
+                            } else {
+                                $withFormat = $value;
+                                $withoutFormat = $value;
+                            }
+
+                            $formattedItemData[$colName] = $this->normalizeColumnValue(
+                                $columnsMapper[$colName],
+                                $withFormat,
+                                $withoutFormat,
+                            );
                         }
-
-                        $formattedItemData[$colName] = $this->normalizeColumnValue(
-                            $columnsMapper[$colName],
-                            $withFormat,
-                            $withoutFormat,
-                        );
                     }
-                }
 
-                if ($hasConditionalRowFilter && !$config->processRow($formattedItemData, $dataRowNumber)) {
-                    continue;
-                }
+                    if ($hasConditionalRowFilter && !$config->processRow($formattedItemData, $dataRowNumber)) {
+                        continue;
+                    }
 
-                $uploadedItem = $upload->addItem($formattedItemData, $dataRowNumber);
-                $this->objectManager->persist($uploadedItem);
-                $total++;
+                    $uploadedItem = $upload->addItem($formattedItemData, $dataRowNumber);
+                    $this->objectManager->persist($uploadedItem);
+                    $total++;
+                }
+            } finally {
+                $this->performance->stop($read, $upload->getId(), ['rows' => $delivered]);
             }
 
             $upload->setTotal($total);
@@ -151,7 +160,13 @@ class UploadConfigHandler
                 $upload->setAttributeValue('__excluded_count__', $delivered - $total);
             }
 
-            $this->completeAction($upload, $action);
+            $persisted = $this->performance->start('upload_data:read.persisted');
+
+            try {
+                $this->completeAction($upload, $action);
+            } finally {
+                $this->performance->stop($persisted, $upload->getId(), ['rows' => $total]);
+            }
 
             if ($config instanceof ConfigReadFiltersAwareInterface) {
                 $config->onPostRead($upload);
@@ -198,50 +213,57 @@ class UploadConfigHandler
             }
 
             /** @var UploadedItem $item */
-            foreach ($items as $item) {
-                if ($config->itsAnExcludedItem($item)) {
-                    $item->setValid(true);
-                    ++$valid;
+            $this->performance->checkpoint('upload_data:validate.before', $upload->getId());
+            $validate = $this->performance->start('upload_data:validate');
 
-                    $this->objectManager->persist($item);
-                    continue;
-                }
+            try {
+                foreach ($items as $item) {
+                    if ($config->itsAnExcludedItem($item)) {
+                        $item->setValid(true);
+                        ++$valid;
 
-                $violations = new GroupedConstraintViolations();
-                $data = $item->getData();
-                foreach ($validations as $group => $columnValidations) {
-                    $context = $this->validator->createValidationContext($item);
-                    foreach ($columnValidations as $column => $constraints) {
-                        $value = array_key_exists($column, $data) ? $data[$column] : null;
-                        $context->atPath($column)->validate($value, $constraints, array('Default', $validationGroup));
+                        $this->objectManager->persist($item);
+                        continue;
                     }
 
-                    // por cada categoria|grupo de validaciones, toca saber si hubieron errores.
-                    $violations->addAll($group, $context->getViolations());
+                    $violations = new GroupedConstraintViolations();
+                    $data = $item->getData();
+                    foreach ($validations as $group => $columnValidations) {
+                        $context = $this->validator->createValidationContext($item);
+                        foreach ($columnValidations as $column => $constraints) {
+                            $value = array_key_exists($column, $data) ? $data[$column] : null;
+                            $context->atPath($column)->validate($value, $constraints, array('Default', $validationGroup));
+                        }
+
+                        // por cada categoria|grupo de validaciones, toca saber si hubieron errores.
+                        $violations->addAll($group, $context->getViolations());
+                    }
+
+                    if ($violations->hasViolationsForGroup('default')) {
+                        // Si hay errores en el grupo por defecto, lo marcamos en el item.
+                        $item->setHasDefaultErrors();
+                        // esto con la finalidad de poder obviar validaciones propias, cuando las
+                        // validaciones mínimas no fueron superadas.
+                    }
+
+                    // iniciamos un nuevo contexto para las validaciones propias.
+                    $context = $this->validator->createValidationContext($item);
+                    $config->validateItem($item, $context, $upload);
+
+                    $this->mergeViolations($violations, $context);
+
+                    $item->setErrors($violations);
+                    $item->setValid($config->shouldItemCanBeConsideredAsValid($violations, $item));
+                    if ($item->getValid()) {
+                        ++$valid;
+                    } else {
+                        ++$invalids;
+                    }
+
+                    $this->objectManager->persist($item);
                 }
-
-                if ($violations->hasViolationsForGroup('default')) {
-                    // Si hay errores en el grupo por defecto, lo marcamos en el item.
-                    $item->setHasDefaultErrors();
-                    // esto con la finalidad de poder obviar validaciones propias, cuando las
-                    // validaciones mínimas no fueron superadas.
-                }
-
-                // iniciamos un nuevo contexto para las validaciones propias.
-                $context = $this->validator->createValidationContext($item);
-                $config->validateItem($item, $context, $upload);
-
-                $this->mergeViolations($violations, $context);
-
-                $item->setErrors($violations);
-                $item->setValid($config->shouldItemCanBeConsideredAsValid($violations, $item));
-                if ($item->getValid()) {
-                    ++$valid;
-                } else {
-                    ++$invalids;
-                }
-
-                $this->objectManager->persist($item);
+            } finally {
+                $this->performance->stop($validate, $upload->getId());
             }
 
             $upload->setValids($valid);
@@ -271,7 +293,14 @@ class UploadConfigHandler
         try {
             $this->setInProcessAction($action);
 
-            $config->transfer($upload);
+            $this->performance->checkpoint('upload_data:transfer.before', $upload->getId());
+            $transfer = $this->performance->start('upload_data:transfer');
+
+            try {
+                $config->transfer($upload);
+            } finally {
+                $this->performance->stop($transfer, $upload->getId());
+            }
 
             $this->completeAction($upload, $action);
         } catch (\Exception $e) {

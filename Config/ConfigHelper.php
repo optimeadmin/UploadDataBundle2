@@ -68,6 +68,8 @@ class ConfigHelper
 
     public function read(Upload $upload, bool $throwOnFail = false): bool
     {
+        set_time_limit(600);
+    
         try {
             return $this->configHandler->processRead($this->resolvedConfig, $upload);
         } catch (\Exception $e) {

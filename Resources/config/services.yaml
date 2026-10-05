@@ -27,3 +27,8 @@ services:
         arguments:
             - ""
             - "@?profiler"
+
+    Manuel\Bundle\UploadDataBundle\Profiler\UploadPerformance:
+        arguments:
+            $logger: '@?logger'
+            $stopwatch: '@?debug.stopwatch'
