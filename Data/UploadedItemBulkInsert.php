@@ -4,9 +4,14 @@ namespace Manuel\Bundle\UploadDataBundle\Data;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
+use Doctrine\ORM\EntityManagerInterface;
+use Manuel\Bundle\UploadDataBundle\Entity\UploadedItem;
 
 /**
- * Inserta, actualiza y lee filas de upload_data_uploaded_item sin el ORM.
+ * Inserta, actualiza y lee filas de uploaded items sin el ORM.
+ *
+ * El nombre de tabla se toma del ClassMetadata de Doctrine para respetar
+ * renombres/prefijos aplicados por listeners (p. ej. upload_data_* → sf_upload_data_*).
  */
 class UploadedItemBulkInsert
 {
@@ -14,8 +19,12 @@ class UploadedItemBulkInsert
 
     private array $pending = [];
 
-    public function __construct(private Connection $connection)
-    {
+    private ?string $tableName = null;
+
+    public function __construct(
+        private Connection $connection,
+        private EntityManagerInterface $entityManager,
+    ) {
     }
 
     public function add(int $uploadId, int $rowNumber, array $data): void
@@ -47,8 +56,11 @@ class UploadedItemBulkInsert
             array_push($types, ParameterType::INTEGER, ParameterType::INTEGER, ParameterType::STRING);
         }
 
-        $sql = 'INSERT INTO upload_data_uploaded_item (upload_id, file_row_number, data, extras, errors, valid) VALUES '
-            .implode(', ', $placeholders);
+        $sql = sprintf(
+            'INSERT INTO %s (upload_id, file_row_number, data, extras, errors, valid) VALUES %s',
+            $this->table(),
+            implode(', ', $placeholders),
+        );
 
         $this->connection->executeStatement($sql, $params, $types);
         $this->pending = [];
@@ -58,7 +70,7 @@ class UploadedItemBulkInsert
     {
         $this->pending = [];
         $this->connection->executeStatement(
-            'DELETE FROM upload_data_uploaded_item WHERE upload_id = ?',
+            sprintf('DELETE FROM %s WHERE upload_id = ?', $this->table()),
             [$uploadId],
             [ParameterType::INTEGER]
         );
@@ -109,7 +121,7 @@ class UploadedItemBulkInsert
             }
 
             $this->connection->executeStatement(
-                'UPDATE upload_data_uploaded_item SET data = ?, extras = ?, errors = ?, valid = ? WHERE id = ?',
+                sprintf('UPDATE %s SET data = ?, extras = ?, errors = ?, valid = ? WHERE id = ?', $this->table()),
                 [
                     json_encode($item->getData() ?? [], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                     $item->getExtras() === null ? null : json_encode($item->getExtras(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
@@ -133,9 +145,12 @@ class UploadedItemBulkInsert
      */
     private function fetchPage(int $uploadId, int $offset, int $limit, ?bool $validOnly): array
     {
-        $sql = 'SELECT id, file_row_number, data, extras, errors, valid
-            FROM upload_data_uploaded_item
-            WHERE upload_id = ?';
+        $sql = sprintf(
+            'SELECT id, file_row_number, data, extras, errors, valid
+            FROM %s
+            WHERE upload_id = ?',
+            $this->table(),
+        );
         $params = [$uploadId];
         $types = [ParameterType::INTEGER];
 
@@ -159,5 +174,12 @@ class UploadedItemBulkInsert
         }
 
         return $items;
+    }
+
+    private function table(): string
+    {
+        return $this->tableName ??= $this->entityManager
+            ->getClassMetadata(UploadedItem::class)
+            ->getTableName();
     }
 }
